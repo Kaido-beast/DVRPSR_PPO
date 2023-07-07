@@ -42,7 +42,8 @@ class Critic(nn.Module):
             customer_index = dist.sample()
 
             values.append(self.eval_step(env, compatibility, customer_index))
+            env.step(customer_index)
 
-            return values[0]
+        return torch.cat(values, dim=1).sum(dim=1)
 
 

@@ -1,15 +1,17 @@
 import torch
 import os.path
 from itertools import repeat, zip_longest
+import numpy as np
 
 def formate_old_actions(actions):
+    max_len = max([action[0].size(0) for action in actions])
     old_actions = []
 
-    for action in actions:
-        old_action = []
-        for i in range(action[0].size(0)):
-            old_action.append([action[0][i].item(), action[1][i].item()])
+    for i in range(max_len):
+        old_action = [[action[0][i].item() if i < action[0].size(0) else 0 for action in actions],
+                      [action[1][i].item() if i < action[1].size(0) else 0 for action in actions]]
         old_actions.append(old_action)
+
     return old_actions
 
 

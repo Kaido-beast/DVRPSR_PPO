@@ -72,7 +72,7 @@ def get_customers_coordinates(data_vienna, batch_size, customers_count, depot):
     data_vienna_without_depot = data_vienna[data_vienna['id'] != int(depot[0][0])].reset_index()
 
     # Sample customers indices for all batches at once
-    sampled_customers = torch.multinomial(torch.tensor(data_vienna_without_depot['id'], dtype=torch.float),
+    sampled_customers = torch.multinomial(torch.tensor(data_vienna_without_depot['id'], dtype=torch.float32),
                                           num_samples=batch_size * customers_count, replacement=True)
 
     sampled_customers = sampled_customers.reshape(batch_size, customers_count)

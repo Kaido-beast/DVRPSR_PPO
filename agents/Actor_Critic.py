@@ -31,6 +31,6 @@ class Actor_Critic(nn.Module):
         return actions, logps, rewards
 
     def evaluate(self, env, old_actions, is_update):
-        entropys, old_logps, _ = self.actor(env, old_actions, is_update)
         values = self.critic(env)
+        entropys, old_logps, _ = self.actor(env, old_actions, is_update)
         return entropys, old_logps, values

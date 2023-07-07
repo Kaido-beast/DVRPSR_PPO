@@ -8,22 +8,29 @@ class DVRPSR_Environment:
 
     # TODO: change pending cost for rewards
 
-    def __init__(self, data, nodes=None, customer_mask=None, edges_attributes=None,
+    def __init__(self,
+                 data=None,
+                 nodes=None,
+                 edges_attributes=None,
+                 vehicle_count=2,
+                 vehicle_speed=1,
+                 vehicle_time_budget=1,
                  pending_cost=1,
                  dynamic_reward=0.2,
                  budget_penalty=10):
 
-        self.vehicle_count = data.vehicle_count
-        self.vehicle_speed = data.vehicle_speed
-        self.vehicle_time_budget = data.vehicle_time_budget
+        self.vehicle_count = data.vehicle_count if data is not None else vehicle_count
+        self.vehicle_speed = data.vehicle_speed if data is not None else vehicle_speed
+        self.vehicle_time_budget = data.vehicle_time_budget if data is not None else vehicle_time_budget
 
         self.nodes = data.nodes if nodes is None else nodes
-        self.edge_index = data.edges_index
         self.edge_attributes = data.edges_attributes if edges_attributes is None else edges_attributes
-        self.init_customer_mask = data.customer_mask if customer_mask is None else customer_mask
 
         self.minibatch, self.nodes_count, _ = self.nodes.size()
+
         self.distance_matrix = self.edge_attributes.view((self.minibatch, self.nodes_count, self.nodes_count))
+        self.edges_attributes = None
+
         self.pending_cost = pending_cost
         self.dynamic_reward = dynamic_reward
         self.budget_penalty = budget_penalty
@@ -42,9 +49,10 @@ class DVRPSR_Environment:
         self.current_vehicle[:, :, 5] = customer_index
 
         # get the distance from current vehicle to its next destination
-        dist = torch.zeros((self.minibatch, 1)).to(self.nodes.device)
-        for i in range(self.minibatch):
-            dist[i, 0] = self.distance_matrix[i][int(self.current_vehicle[i, :, 4])][int(self.current_vehicle[i, :, 5])]
+        # Convert indices to integers
+        current_idx = self.current_vehicle[:, :, 4].long()
+        next_idx = self.current_vehicle[:, :, 5].long()
+        dist = self.distance_matrix[torch.arange(self.minibatch).unsqueeze(1), current_idx, next_idx].view(self.minibatch, 1)
 
         # total travel time
         tt = dist / self.vehicle_speed
@@ -85,19 +93,13 @@ class DVRPSR_Environment:
         self.served.scatter_(1, customer_index, customer_index > 0)
 
         # cost for a vehicle to go to customer and back to deport considering service duration
-        cost = torch.zeros((self.minibatch, self.nodes_count, 1)).to(self.nodes.device)
-        for i in range(self.minibatch):
-            for j in range(self.nodes_count):
-                dist_vehicle_customer_depot = self.distance_matrix[i][int(self.current_vehicle[i, :, 4])][j] + \
-                                              self.distance_matrix[i][j][0]
-                cost[i, j] = dist_vehicle_customer_depot
+        current_idx = self.current_vehicle[:, :, 4].long()
+        dist_vehicle_customer_depot = self.distance_matrix[torch.arange(self.minibatch).unsqueeze(1), current_idx,
+                                      :].squeeze(1) + self.distance_matrix[:, :, 0]
+        cost = dist_vehicle_customer_depot / self.vehicle_speed
+        cost += self.nodes[:, :, 2]
 
-        cost = cost / self.vehicle_speed
-
-        cost += self.nodes[:, :, None, 2]
-
-        overtime_mask = self.current_vehicle[:, :, None, 2] - cost
-        overtime_mask = overtime_mask.squeeze(2).unsqueeze(1)
+        overtime_mask = self.current_vehicle[:, :, None, 2] - cost.unsqueeze(1)
         overtime = torch.zeros_like(self.mask).scatter_(1,
                                                         self.current_vehicle_index[:, :, None].expand(-1, -1,
                                                                                                       self.nodes_count),
@@ -125,11 +127,7 @@ class DVRPSR_Environment:
 
         time = self.current_vehicle[:, :, 3].clone()
 
-        if self.init_customer_mask is None:
-            reveal_dyn_reqs = torch.logical_and((self.customer_mask), (self.nodes[:, :, 3] <= time))
-        else:
-            reveal_dyn_reqs = torch.logical_and((self.customer_mask ^ self.init_customer_mask),
-                                                (self.nodes[:, :, 3] <= time))
+        reveal_dyn_reqs = torch.logical_and((self.customer_mask), (self.nodes[:, :, 3] <= time))
 
         if reveal_dyn_reqs.any():
             self.new_customer = True
@@ -151,8 +149,6 @@ class DVRPSR_Environment:
 
         # reset cust_mask
         self.customer_mask = self.nodes[:, :, 3] > 0
-        if self.init_customer_mask is not None:
-            self.customer_mask = self.customer_mask | self.init_customer_mask
 
         # reset new customers and served customer since now to zero (all false)
         self.new_customer = True
@@ -182,16 +178,13 @@ class DVRPSR_Environment:
         self._update_next_vehicle(veh_index)
 
         # reward = -dist * (1 - dyn_cust*self.dynamic_reward)
-        reward = self.current_vehicle[:, :, 7] - self.current_vehicle[:, :, 6] + self.dynamic_reward * dyn_cust
+        reward = self.current_vehicle[:, :, 7] - self.current_vehicle[:, :, 6]
         pending_static_customers = torch.logical_and((self.served ^ True),
                                                      (self.nodes[:, :, 3] == 0)).float().sum(-1, keepdim=True) - 1
 
         reward -= self.pending_cost * pending_static_customers
 
         if self.done:
-
-            if self.init_customer_mask is not None:
-                self.served += self.init_customer_mask
             # penalty for pending customers
             pending_customers = torch.logical_and((self.served ^ True),
                                                   (self.nodes[:, :, 3] >= 0)).float().sum(-1, keepdim=True) - 1

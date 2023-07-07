@@ -22,7 +22,7 @@ from tqdm import tqdm
 ortool_available = True
 
 def run(args):
-    device = torch.device("cpu" if torch.backends.mps.is_available() and args.gpu else "cpu")
+    device = torch.device("mps" if torch.backends.mps.is_available() and args.gpu else "cpu")
     print(device)
 
     if args.seed is not None:
@@ -61,9 +61,15 @@ def run(args):
 
     ## Defining Environemnt for DVRPSR
     env = {"DVRPSR": DVRPSR_Environment}.get(args.problem)
-    env_params = [args.pending_cost,
-                  args.dynamic_reward]
-    env_test = env(test_data, None, None, None, *env_params)
+    env_params_train = [train_data.vehicle_count,
+                        train_data.vehicle_speed,
+                        train_data.vehicle_time_budget,
+                        args.pending_cost,
+                        args.dynamic_reward]
+
+    env_params_test = [args.pending_cost,
+                       args.dynamic_reward]
+    env_test = env(test_data, None, None, None, *env_params_test)
 
     if reference_routes is not None:
         reference_costs = eval_apriori_routes(env_test, reference_routes, 100)
@@ -124,7 +130,7 @@ def run(args):
         for epoch in range(start_epoch, args.epoch_count):
 
             #print('running epoch {}'.format(epoch+1))
-            train_stats.append(trainppo.run_train(args, train_data, env, env_params, optim, lr_scheduler, device, epoch))
+            train_stats.append(trainppo.run_train(args, train_data, env, env_params_train, optim, lr_scheduler, device, epoch))
 
             agent = trainppo.agent.old_policy
 

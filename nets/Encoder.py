@@ -32,11 +32,11 @@ class GraphEncoderlayer(nn.Module):
 
 class GraphEncoder(nn.Module):
 
-    def __init__(self, encoder_layer, num_head, model_size, ff_szie):
+    def __init__(self, encoder_layer, num_head, model_size, ff_size):
         super().__init__()
 
         for l in range(encoder_layer):
-            self.add_module(str(l), GraphEncoderlayer(num_head, model_size, ff_szie))
+            self.add_module(str(l), GraphEncoderlayer(num_head, model_size, ff_size))
 
     def forward(self, h_in, e_in=None, mask=None):
 

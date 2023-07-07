@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class GraphMultiHeadAttention(nn.Module):
 
     def __init__(self, num_head, query_size, key_size=None, value_size=None, edge_dim_size=None, bias=False):
@@ -18,24 +19,20 @@ class GraphMultiHeadAttention(nn.Module):
 
         self.keys_per_head = self.key_size // self.num_head
         self.values_per_head = self.value_size // self.num_head
-        self.edge_size_per_head = self.edge_dim_size
+        self.edge_size_per_head = self.edge_dim_size // self.num_head
 
-        self.edge_embedding = nn.Linear(self.edge_dim_size, self.edge_size_per_head, bias=bias)
+        self.edge_embedding = nn.Linear(self.edge_dim_size, self.num_head * self.edge_size_per_head, bias=bias)
         self.query_embedding = nn.Linear(self.query_size, self.num_head * self.keys_per_head, bias=bias)
         self.key_embedding = nn.Linear(self.key_size, self.num_head * self.keys_per_head, bias=bias)
         self.value_embedding = nn.Linear(self.value_size, self.num_head * self.values_per_head, bias=bias)
         self.recombine = nn.Linear(self.num_head * self.values_per_head, self.value_size, bias=bias)
-
         self.K_project_pre = None
         self.V_project_pre = None
-
         self.initialize_weights()
 
     def initialize_weights(self):
-        # TODO: add xavier initialziation as well
-
-        nn.init.uniform_(self.query_embedding.weight, -self.scaling_factor, self.scaling_factor)
-        nn.init.uniform_(self.key_embedding.weight, -self.scaling_factor, self.scaling_factor)
+        nn.init.xavier_uniform_(self.query_embedding.weight)
+        nn.init.xavier_uniform_(self.key_embedding.weight)
         inv_sq_dv = self.value_size ** -0.5
         nn.init.uniform_(self.value_embedding.weight, -inv_sq_dv, inv_sq_dv)
 
@@ -92,20 +89,10 @@ class GraphMultiHeadAttention(nn.Module):
         if edge_attributes is not None:
             # TODO: edge mask (is it required)
             edge_project = self.edge_embedding(edge_attributes).view(
-                -1, size_Q, size_Q, self.edge_size_per_head)
+                -1, size_Q, size_Q, self.num_head, self.edge_size_per_head)
+            edge_project_expanded = edge_project.mean(-1).permute(0, 3, 1, 2)
 
-            # get enhanced attention inclusing edge attributes
-            attention_expanded = attention.unsqueeze(-1).expand(-1, -1, -1, -1, self.edge_size_per_head)
-
-            # Expand edge attributes to match the number of attention heads
-            edge_project_expanded = edge_project.unsqueeze(1).expand(-1, attention.size(1), -1, -1, -1)
-            #print(attention_expanded.size(), edge_project_expanded.size())
-
-            attention = attention_expanded * edge_project_expanded
-            #print(attention.size())
-            attention = attention.mean(-1)
-
-            # print(attention.size())
+            attention = attention * edge_project_expanded
 
         if mask is not None:
 
@@ -123,4 +110,3 @@ class GraphMultiHeadAttention(nn.Module):
         output = self.recombine(attention)
 
         return output
-

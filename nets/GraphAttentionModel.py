@@ -5,6 +5,7 @@ from torch.distributions.categorical import Categorical
 from nets import GraphMultiHeadAttention
 from nets.Encoder import GraphEncoder
 
+
 class GraphAttentionModel(nn.Module):
 
     def __init__(self, customer_feature, vehicle_feature, model_size=128, encoder_layer=3,
@@ -18,7 +19,7 @@ class GraphAttentionModel(nn.Module):
         self.greedy = greedy
 
         # Initialize encoder and embeddings
-        self.customer_encoder = GraphEncoder(encoder_layer=3, num_head=8, model_size=128, ff_szie=512)
+        self.customer_encoder = GraphEncoder(encoder_layer=3, num_head=8, model_size=model_size, ff_size=ff_size)
         self.customer_embedding = nn.Linear(customer_feature, model_size)
         self.depot_embedding = nn.Linear(customer_feature, model_size)
 
@@ -54,21 +55,10 @@ class GraphAttentionModel(nn.Module):
 
     def vehicle_representation(self, vehicles, vehicle_index, vehicle_mask=None):
 
-        # vehicles_embedding = self.vehicle_embedding(vehicles)
-
-        # print(vehicles_embedding.size(), self.customer_representation.size())
-
         fleet_representation = self.fleet_attention(vehicles, mask=vehicle_mask)
-
-        #         print(fleet_representation.size())
-
         vehicle_query = fleet_representation.gather(0, vehicle_index.unsqueeze(2).expand(-1, -1, self.model_size))
 
-        self._vehicle_representation = self.vehicle_attention(vehicle_query,
-                                                              fleet_representation,
-                                                              fleet_representation)
-
-        return self._vehicle_representation
+        return self.vehicle_attention(vehicle_query, fleet_representation, fleet_representation)
 
     def score_customers(self, vehicle_representation):
 
@@ -83,9 +73,6 @@ class GraphAttentionModel(nn.Module):
         return compact
 
     def get_prop(self, compact, vehicle_mask=None):
-
-        compact = compact
-
         compact[vehicle_mask] = -float('inf')
         compact = F.softmax(compact, dim=-1)
         return compact
@@ -98,7 +85,7 @@ class GraphAttentionModel(nn.Module):
 
         compact = self.score_customers(_vehicle_representation)
         prop = self.get_prop(compact, env.current_vehicle_mask)
-        # print(compact.size())
+        #print(compact.size())
 
         # step actions based on model act or evalaute
         if old_action is not None:
@@ -110,8 +97,8 @@ class GraphAttentionModel(nn.Module):
 
             is_done = float(env.done)
 
-            entropy = entropy * (1. - is_done)
-            old_actions_logp = old_actions_logp * (1. - is_done)
+            entropy *= (1. - is_done)
+            old_actions_logp *= (1. - is_done)
             return old_action[:, 1].unsqueeze(-1), entropy, old_actions_logp
 
 
@@ -126,7 +113,7 @@ class GraphAttentionModel(nn.Module):
             is_done = float(env.done)
 
             logp = dist.log_prob(customer_index)
-            logp = logp * (1. - is_done)
+            logp *= (1. - is_done)
 
             return customer_index, logp
 
@@ -142,13 +129,8 @@ class GraphAttentionModel(nn.Module):
                 if env.new_customer:
                     self.encode_customers(env, env.customer_mask)
 
-                if i < steps - 1:
-                    old_action = old_actions[i, :, :]
-                    next_action = old_actions[i + 1, :, :]
-                else:
-                    # this would be the last action which the agent takes and envrionment is done
-                    old_action = old_actions[i, :, :]
-                    next_action = old_actions[i, :, :]
+                old_action = old_actions[i, :, :]
+                next_action = old_actions[i + 1, :, :] if i < steps - 1 else old_action
 
                 next_vehicle_index = next_action[:, 0].unsqueeze(-1)
                 # print(next_vehicle_index)

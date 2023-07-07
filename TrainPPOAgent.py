@@ -13,6 +13,7 @@ from utils.Misc import formate_old_actions
 import tqdm
 from tqdm import tqdm
 
+
 class TrainPPOAgent:
 
     def __init__(self,
@@ -23,16 +24,16 @@ class TrainPPOAgent:
                  encoder_layer=3,
                  num_head=8,
                  ff_size_actor=128,
-                 ff_size_critic=512,
+                 ff_size_critic=128,
                  tanh_xplor=10,
                  edge_embedding_dim=64,
                  greedy=False,
                  learning_rate=3e-4,
                  ppo_epoch=3,
-                 batch_size=256,
+                 batch_size=128,
                  entropy_value=0.2,
                  epsilon_clip=0.2,
-                 epoch=40,
+                 epoch=50,
                  timestep=2,
                  max_grad_norm=2):
 
@@ -50,7 +51,7 @@ class TrainPPOAgent:
     def run_train(self, args, datas, env, env_params, optim, lr_scheduler, device, epoch):
 
         train_data_loader = DataLoader(datas, batch_size=self.batch_size, shuffle=True)
-        #print(self.batch_size)
+        # print(self.batch_size)
 
         memory = Memory()
         self.agent.old_policy.to(device)
@@ -76,30 +77,29 @@ class TrainPPOAgent:
                 nodes = nodes.view(self.batch_size, self.customers_count, 4)
                 edge_attributes = edge_attributes.view(self.batch_size, self.customers_count * self.customers_count, 1)
 
-                dyna_env = env(datas, nodes, customer_mask, edge_attributes, *env_params)
+                dyna_env = env(None, nodes, edge_attributes, *env_params)
 
                 actions, logps, rewards = self.agent.old_policy.act(dyna_env)
 
                 ## formate the actions for memory
                 actions = formate_old_actions(actions)
                 actions = torch.tensor(actions)
-                actions = actions.permute(1, 0, 2)
+                actions = actions.permute(0, 2, 1)
 
-                actions = actions.to(device)
-                logps = logps.to(device)
-                rewards = rewards.to(device)
+                actions = actions.to(torch.device('cpu')).detach()
+                logps = logps.to(torch.device('cpu')).detach()
+                rewards = rewards.to(torch.device('cpu')).detach()
 
-                #print(actions.size())
-
-                memory.nodes.extend(nodes)
-                memory.edge_attributes.extend(edge_attributes)
+                memory.nodes.extend(minibatch[0])
+                memory.edge_attributes.extend(minibatch[1])
                 memory.rewards.extend(rewards)
                 memory.log_probs.extend(logps)
                 memory.actions.extend(actions)
 
                 if (batch_index + 1) % self.update_timestep == 0:
-                    u_rewards, u_losses, u_critic_rewards = self.agent.update(memory, epoch, datas, env, optim, lr_scheduler, device)
-                    #print(u_losses, u_critic_rewards)
+                    u_rewards, u_losses, u_critic_rewards = self.agent.update(memory, epoch, datas, env, env_params, optim,
+                                                                              lr_scheduler, device)
+                    # print(u_losses, u_critic_rewards)
                     memory.clear()
 
                 prob = torch.stack([logps]).sum(dim=0).exp().mean()
@@ -133,3 +133,4 @@ class TrainPPOAgent:
 
         print("Cost on test dataset: {:5.2f} +- {:5.2f} ({:.2%})".format(mean, std, gap))
         return mean.item(), std.item(), gap.item()
+
