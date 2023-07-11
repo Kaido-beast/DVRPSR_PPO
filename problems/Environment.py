@@ -15,8 +15,8 @@ class DVRPSR_Environment:
                  vehicle_count=2,
                  vehicle_speed=1,
                  vehicle_time_budget=1,
-                 pending_cost=1,
-                 dynamic_reward=0.2,
+                 pending_cost=0.1,
+                 dynamic_reward=1,
                  budget_penalty=10):
 
         self.vehicle_count = data.vehicle_count if data is not None else vehicle_count
@@ -171,18 +171,19 @@ class DVRPSR_Environment:
         dest = self.nodes.gather(1, customer_index[:, :, None].expand(-1, -1, self.customer_feature))
         dist, dyn_cust = self._update_current_vehicles(dest, customer_index)
 
-        # cust = (dest[:, :, 3] >= 0).float()
+        static_cust = (dest[:, :, 3] <= 0).float()
 
         self._done(customer_index)
         self._update_mask(customer_index)
         self._update_next_vehicle(veh_index)
 
         # reward = -dist * (1 - dyn_cust*self.dynamic_reward)
-        reward = self.current_vehicle[:, :, 7] - self.current_vehicle[:, :, 6]
-        pending_static_customers = torch.logical_and((self.served ^ True),
-                                                     (self.nodes[:, :, 3] == 0)).float().sum(-1, keepdim=True) - 1
+        # reward = self.current_vehicle[:, :, 7] - self.current_vehicle[:, :, 6]
+        #pending_static_customers = torch.logical_and((self.served ^ True),
+        #                                             (self.nodes[:, :, 3] == 0)).float().sum(-1, keepdim=True) - 1
+        reward = -dist
+        reward += static_cust*self.pending_cost
 
-        reward -= self.pending_cost * pending_static_customers
 
         if self.done:
             # penalty for pending customers

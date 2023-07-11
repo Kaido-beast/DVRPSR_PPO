@@ -12,16 +12,12 @@ class Critic(nn.Module):
         super(Critic, self).__init__()
 
         self.model = model
-        self.ff_layer1 = nn.Linear(customers_count, ff_size)
-        self.ff_layer2 = nn.Linear(ff_size, customers_count)
+        self.ff_layer = nn.Linear(customers_count, customers_count, bias = False)
 
     def eval_step(self, env, compatibility, customer_index):
         compact = compatibility.clone()
         compact[env.current_vehicle_mask] = 0
-
-        value = self.ff_layer1(compact)
-        value = F.relu(value)
-        value = self.ff_layer2(value)
+        value = self.ff_layer(compact)
 
         val = value.gather(2, customer_index.unsqueeze(1)).expand(-1, 1, -1)
         return val.squeeze(1)
