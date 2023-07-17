@@ -48,9 +48,9 @@ def ParseArguments(argv=None):
 
     ### Environment related arguments
     parser.add_argument_group(" Environment for DVRPSR")
-    parser.add_argument("--pending-cost", type=int, default=0.1,
+    parser.add_argument("--pending-cost", type=int, default=0.2,
                         help='Pending cost for not serving a static customers in routes')
-    parser.add_argument("--dynamic-reward", type=int, default=1,
+    parser.add_argument("--dynamic-reward", type=int, default=0.5,
                         help="Reward for serving a Dynamic customer")
 
     parser.add_argument_group(" Graph Attention models ")
@@ -65,7 +65,7 @@ def ParseArguments(argv=None):
     parser.add_argument("--ff-size-critic", type=int, default=128,
                         help=" Size of fully connected Feed Forward Networks")
     parser.add_argument("--tanh-xplor", type=int, default=10)
-    parser.add_argument("--edge_embedding_dim", type=int, default=64,
+    parser.add_argument("--edge_embedding_dim", type=int, default=128,
                         help = 'Edge embedding dimention for edge attributes')
 
     # PPO Agent Training related arguments
@@ -74,14 +74,14 @@ def ParseArguments(argv=None):
                         help='weather to use greedy or smapling')
     parser.add_argument("--learning-rate", type=int, default=1e-4,
                         help='Learning rate for PPO agent')
-    parser.add_argument("--ppo-epoch", type=int, default=3,
+    parser.add_argument("--ppo-epoch", type=int, default=1,
                         help='Epoch for PPO to run the sample and evaluate')
-    parser.add_argument("--entropy-value", type=int, default=0.2)
-    parser.add_argument("--epsilon-clip", type=int, default=0.2)
+    parser.add_argument("--entropy-value", type=int, default=0.25)
+    parser.add_argument("--epsilon-clip", type=int, default=0.25)
     parser.add_argument("--timestep", type=int, default=1)
 
-    parser.add_argument("--epoch-count", "-e", type=int, default=50)
-    parser.add_argument("--iter-count", "-i", type=int, default=1000)
+    parser.add_argument("--epoch-count", "-e", type=int, default=20)
+    parser.add_argument("--iter-count", "-i", type=int, default=100)
     parser.add_argument("--batch-size", "-b", type=int, default=128)
     parser.add_argument("--rate-decay", '-d', type=float, default=0.96)
     parser.add_argument("--max-grad-norm", type=float, default=2)

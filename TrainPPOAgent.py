@@ -1,12 +1,7 @@
-import os
-import time
-import torch
-from torch.utils.data import Dataset, DataLoader
 
-from collections import OrderedDict
-from collections import namedtuple
-from itertools import product
-import numpy as np
+import torch
+from torch.utils.data import DataLoader
+
 from agents import AgentPPO
 from utils import Memory
 from utils.Misc import formate_old_actions
@@ -26,7 +21,7 @@ class TrainPPOAgent:
                  ff_size_actor=128,
                  ff_size_critic=128,
                  tanh_xplor=10,
-                 edge_embedding_dim=64,
+                 edge_embedding_dim=128,
                  greedy=False,
                  learning_rate=3e-4,
                  ppo_epoch=3,
@@ -38,7 +33,8 @@ class TrainPPOAgent:
                  max_grad_norm=2):
 
         self.greedy = greedy
-        self.memory = Memory()
+        self.customer_feature = customer_feature
+        #self.memory = Memory()
         self.batch_size = batch_size
         self.customers_count = customers_count
         self.update_timestep = timestep
@@ -48,12 +44,13 @@ class TrainPPOAgent:
                               tanh_xplor, edge_embedding_dim, greedy, learning_rate,
                               ppo_epoch, batch_size, entropy_value, epsilon_clip, max_grad_norm)
 
-    def run_train(self, args, datas, env, env_params, optim, lr_scheduler, device, epoch):
+
+
+    def run_train(self, args, datas, env, env_params, device, epoch):
 
         train_data_loader = DataLoader(datas, batch_size=self.batch_size, shuffle=True)
-        # print(self.batch_size)
-
         memory = Memory()
+
         self.agent.old_policy.to(device)
 
         epoch_loss = 0
@@ -61,23 +58,22 @@ class TrainPPOAgent:
         epoch_val = 0
         epoch_c_val = 0
 
-        self.agent.old_policy.train()
-        times, losses, rewards1, critic_rewards = [], [], [], []
 
-        epoch_start = time.time()
-        start_time = epoch_start
+        self.agent.old_policy.train()
 
         with tqdm(train_data_loader, desc="Epoch #{: >3d}/{: <3d}".format(epoch + 1, args.epoch_count)) as progress:
 
             for batch_index, minibatch in enumerate(progress):
 
-                if datas.customer_mask is None:
-                    nodes, customer_mask, edge_attributes = minibatch[0].to(device), None, minibatch[1].to(device)
+
+                nodes, customer_mask, edge_attributes = minibatch[0].to(device), None, minibatch[1].to(device)
 
                 nodes = nodes.view(self.batch_size, self.customers_count, 4)
                 edge_attributes = edge_attributes.view(self.batch_size, self.customers_count * self.customers_count, 1)
 
                 dyna_env = env(None, nodes, edge_attributes, *env_params)
+
+                #print('running policy act *********************************')
 
                 actions, logps, rewards = self.agent.old_policy.act(dyna_env)
 
@@ -85,6 +81,7 @@ class TrainPPOAgent:
                 actions = formate_old_actions(actions)
                 actions = torch.tensor(actions)
                 actions = actions.permute(0, 2, 1)
+                #print(actions)
 
                 actions = actions.to(torch.device('cpu')).detach()
                 logps = logps.to(torch.device('cpu')).detach()
@@ -97,23 +94,37 @@ class TrainPPOAgent:
                 memory.actions.extend(actions)
 
                 if (batch_index + 1) % self.update_timestep == 0:
-                    u_rewards, u_losses, u_critic_rewards = self.agent.update(memory, epoch, datas, env, env_params, optim,
-                                                                              lr_scheduler, device)
+                    #print('updating policy ************************************')
+                    loss_total, loss_a, loss_m, loss_e, norm_r, critic_r = self.agent.update(memory, epoch, datas, env, env_params, device)
                     # print(u_losses, u_critic_rewards)
                     memory.clear()
 
+                # print('oevr all logps {}, rewards_actor {}, logps_old {}, critic_reward {}'.format(logps,
+                #                                                                                    rewards,
+                #                                                                                    u_critic_rewards,
+                #                                                                                    u_losses))
+
                 prob = torch.stack([logps]).sum(dim=0).exp().mean()
                 val = torch.stack([rewards]).sum(dim=0).mean()
-                c_val = torch.tensor(u_critic_rewards).mean()
-                u_losses = torch.tensor(u_losses).mean()
 
-                progress.set_postfix_str("l={:.4g} p={:9.4g} val={:6.4g} c_val={:6.4g}".format(
-                    u_losses.item(), prob.item(), val.item(), c_val.item()))
+                loss_total = torch.tensor(loss_total).mean()
+                loss_a = torch.tensor(loss_a).mean()
+                loss_m = torch.tensor(loss_m).mean()
+                loss_e = torch.tensor(loss_e).mean()
 
-                epoch_loss += u_losses.item()
+
+                norm_r = torch.tensor(norm_r).mean()
+                critic_r = torch.tensor(critic_r).mean()
+
+                progress.set_postfix_str("p={:6.4g} val={:6.4g} l_t={:6.4g} l_a={:6.4g} "
+                                         "l_m={:6.4g} l_e={:6.4g} r_n={:6.4g} c_n={:6.4g} ".format(
+                                          prob.item(), val.item(), loss_total.item(), loss_a.item(),
+                                          loss_m.item(), loss_e.item(), norm_r.item(), critic_r.item()))
+
+                epoch_loss += loss_total.item()
                 epoch_prop += prob.item()
                 epoch_val += val.item()
-                epoch_c_val += c_val.item()
+                epoch_c_val += critic_r.item()
 
             return tuple(stats / args.iter_count for stats in (epoch_loss, epoch_prop, epoch_val, epoch_c_val))
 
@@ -121,11 +132,11 @@ class TrainPPOAgent:
         agent.eval()
         costs = env.nodes.new_zeros(env.minibatch)
 
-        for _ in range(100):
+        for _ in range(2):
             _, _, rewards = agent.act(env)
             costs += torch.stack([rewards]).sum(dim=0).squeeze(-1)
 
-        costs = costs / 100
+        costs = costs / 2
 
         mean = costs.mean()
         std = costs.std()

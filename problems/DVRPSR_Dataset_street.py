@@ -151,8 +151,9 @@ if __name__ == '__main__':
     elif train_test_val == 'test':
         batch_size = args.test_batch_size
     else:
-        batch_size = 10
+        batch_size = 20
 
+    print(batch_size)
     vehicle_count = args.vehicle_count
     vehicle_speed = args.vehicle_speed
     Lambda = args.Lambda
@@ -170,14 +171,14 @@ if __name__ == '__main__':
     end_time = time()
 
     # save the data
-    folder_path = "../data/{}/DVRPSR_{}_{}_{}_{}".format(train_test_val, Lambda, dod, vehicle_count, horizon)
+    folder_path = "../data/{}/{}_{}_{}_{}".format(train_test_val, Lambda, dod, vehicle_count, horizon)
     os.makedirs(folder_path, exist_ok=True)
     if train_test_val == 'train':
-        torch.save(data, os.path.join(folder_path, "normalized_train.pth"))
+        torch.save(data, os.path.join(folder_path, "train_n.pth"))
     elif train_test_val == 'test':
-        torch.save(data, os.path.join(folder_path, "unnormalized_test.pth"))
+        torch.save(data, os.path.join(folder_path, "test_un.pth"))
     else:
-        torch.save(data, os.path.join(folder_path, "unnormalized_val.pth"))
+        torch.save(data, os.path.join(folder_path, "val_un.pth"))
 
     print(f'Time to run {batch_size} batches is {end_time-start_time}')
     print(data.edges_attributes.size())

@@ -9,7 +9,7 @@ from nets.Encoder import GraphEncoder
 class GraphAttentionModel(nn.Module):
 
     def __init__(self, customer_feature, vehicle_feature, model_size=128, encoder_layer=3,
-                 num_head=8, ff_size=128, tanh_xplor=10, edge_embedding_dim=64, greedy=False):
+                 num_head=8, ff_size=128, tanh_xplor=10, edge_embedding_dim=128, greedy=False):
         super().__init__()
 
         # get models parameters for encoding-decoding
@@ -19,7 +19,7 @@ class GraphAttentionModel(nn.Module):
         self.greedy = greedy
 
         # Initialize encoder and embeddings
-        self.customer_encoder = GraphEncoder(encoder_layer=3, num_head=8, model_size=model_size, ff_size=ff_size)
+        self.customer_encoder = GraphEncoder(encoder_layer=encoder_layer, num_head=num_head, edge_dim_size = edge_embedding_dim, model_size=model_size, ff_size=ff_size)
         self.customer_embedding = nn.Linear(customer_feature, model_size)
         self.depot_embedding = nn.Linear(customer_feature, model_size)
 
@@ -38,7 +38,7 @@ class GraphAttentionModel(nn.Module):
 
     def encode_customers(self, env, customer_mask=None):
 
-        customer_emb = torch.cat((self.depot_embedding(env.nodes[:, :1, :]),
+        customer_emb = torch.cat((self.depot_embedding(env.nodes[:, 0:1, :]),
                                   self.customer_embedding(env.nodes[:, 1:, :])), dim=1)
         if customer_mask is not None:
             customer_emb[customer_mask] = 0
@@ -56,25 +56,43 @@ class GraphAttentionModel(nn.Module):
     def vehicle_representation(self, vehicles, vehicle_index, vehicle_mask=None):
 
         fleet_representation = self.fleet_attention(vehicles, mask=vehicle_mask)
-        vehicle_query = fleet_representation.gather(0, vehicle_index.unsqueeze(2).expand(-1, -1, self.model_size))
+        #print(fleet_representation.size())
+        vehicle_query = fleet_representation.gather(1, vehicle_index.unsqueeze(2).expand(-1, -1, self.model_size))
 
         return self.vehicle_attention(vehicle_query, fleet_representation, fleet_representation)
 
     def score_customers(self, vehicle_representation):
 
-        # print(vehicle_representation.size(), self.customer_representation.size())
+        #print(vehicle_representation.size(), vehicle_representation, self.customer_representation.size(), self.customer_representation)
         compact = torch.bmm(vehicle_representation,
                             self.customer_representation.transpose(2, 1))
+
+        #print('before compatibility score of customer {}, {}'.format(compact.size(), compact))
         compact *= self.scaling_factor
 
         if self.tanh_xplor is not None:
             compact = self.tanh_xplor * compact.tanh()
 
+        #print('after compatibility score of customer {}, {}'.format(compact.size(), compact))
+
         return compact
 
-    def get_prop(self, compact, vehicle_mask=None):
+    def get_prop(self, compact, current_vehicle, vehicle_mask=None):
         compact[vehicle_mask] = -float('inf')
+
+        #print(current_vehicle[:, :, 5],  current_vehicle[:, :, 4])
+
+        if (current_vehicle[:, :, 5] != current_vehicle[:, :, 4]).all():
+            vehicle_indices = current_vehicle[:, :, 5].squeeze().long().unsqueeze(-1)
+            compact.scatter_(2, vehicle_indices.unsqueeze(-1), -self.tanh_xplor)
+
+        #compact[last_customer_visited.unsqueeze(-1)] = -500
+        compact[:, :, 0] = -(self.tanh_xplor**2)
+
+
+        #print('after sub pend compatibility score of customer {}'.format( compact))
         compact = F.softmax(compact, dim=-1)
+        #print('softmax compatibility score of customer {} {}'.format(compact.size(), compact))
         return compact
 
     def step(self, env, old_action=None):
@@ -84,7 +102,7 @@ class GraphAttentionModel(nn.Module):
                                                               env.current_vehicle_mask)
 
         compact = self.score_customers(_vehicle_representation)
-        prop = self.get_prop(compact, env.current_vehicle_mask)
+        prop = self.get_prop(compact, env.current_vehicle, env.current_vehicle_mask)
         #print(compact.size())
 
         # step actions based on model act or evalaute
@@ -106,14 +124,17 @@ class GraphAttentionModel(nn.Module):
             dist = Categorical(prop)
 
             if self.greedy:
-                _, customer_index = p.max(dim=-1)
+                _, customer_index = prop.max(dim=-1)
             else:
                 customer_index = dist.sample()
 
+            #print(customer_index)
             is_done = float(env.done)
 
             logp = dist.log_prob(customer_index)
             logp *= (1. - is_done)
+            #print(env.current_vehicle_index, env.current_vehicle)
+            #print(customer_index,  logp)
 
             return customer_index, logp
 
@@ -137,6 +158,9 @@ class GraphAttentionModel(nn.Module):
 
                 customer_index, entropy, logp = self.step(env, old_action)
 
+                #print('for updating env customer_idx{}, veh_index{}'.format(customer_index, next_vehicle_index))
+                #print(customer_index, next_vehicle_index)
+
                 env.step(customer_index, next_vehicle_index)
 
                 old_actions_logps.append(logp)
@@ -159,19 +183,28 @@ class GraphAttentionModel(nn.Module):
                 if env.new_customer:
                     self.encode_customers(env, env.customer_mask)
 
+
                 customer_index, logp = self.step(env)
+
+                #print('custoemr index {}, logp {}'.format(customer_index, logp))
+                #print(env.current_vehicle_index, customer_index, env.done)
                 actions.append((env.current_vehicle_index, customer_index))
                 logps.append(logp)
                 rewards.append(env.step(customer_index))
+                #print(customer_index, env.current_vehicle_index, logp)
+
+            # if env.done:
+            #     rewards = env.get_reward()
 
             # actions = torch.cat(actions, dim=1)
             logps = torch.cat(logps, dim=1)
-            logp = logps.sum(dim=1)
+            logp_sum = logps.sum(dim=1)
 
             rewards = torch.cat(rewards, dim=1)
             rewards = rewards.sum(dim=1)
+            #print(rewards, logp)
 
-            return actions, logp, rewards
+            return actions, logp_sum, rewards
 
 
 

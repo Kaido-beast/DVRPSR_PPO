@@ -1,3 +1,4 @@
 from .GraphMultiHeadAttention import GraphMultiHeadAttention
 from .Encoder import GraphEncoder
 from .GraphAttentionModel import GraphAttentionModel
+from .GraphAttentionModel_v2 import GraphAttentionModel_v1

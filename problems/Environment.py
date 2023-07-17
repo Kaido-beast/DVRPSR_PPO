@@ -2,7 +2,7 @@ import torch
 
 
 class DVRPSR_Environment:
-    vehicle_feature = 8  # vehicle coordinates(x_i,y_i), veh_time_time_budget, total_travel_time, last_customer,
+    vehicle_feature = 6  # vehicle coordinates(x_i,y_i), veh_time_time_budget, total_travel_time, last_customer,
     # next(destination) customer, last rewards, next rewards
     customer_feature = 4
 
@@ -48,6 +48,8 @@ class DVRPSR_Environment:
         self.current_vehicle[:, :, 4] = self.current_vehicle[:, :, 5]
         self.current_vehicle[:, :, 5] = customer_index
 
+        #print(self.current_vehicle)
+
         # get the distance from current vehicle to its next destination
         # Convert indices to integers
         current_idx = self.current_vehicle[:, :, 4].long()
@@ -62,14 +64,17 @@ class DVRPSR_Environment:
 
         # budget left while travelling to destination nodes
         budget = tt + dest[:, :, 2]
-        # print(budget, tau, tt, dest[:,:,2])
 
+        #print(self.current_vehicle[:, :, 2], budget)
         # update vehicle features based on destination nodes
         self.current_vehicle[:, :, :2] = dest[:, :, :2]
         self.current_vehicle[:, :, 2] -= budget
         self.current_vehicle[:, :, 3] += tt
-        self.current_vehicle[:, :, 6] = self.current_vehicle[:, :, 7]
-        self.current_vehicle[:, :, 7] = -dist
+        # self.current_vehicle[:, :, 6] = self.current_vehicle[:, :, 7]
+        # self.current_vehicle[:, :, 7] = -dist
+
+        #print('from update part of env {}'.format(self.vehicles))
+
 
         # update vehicles states
         self.vehicles = self.vehicles.scatter(1,
@@ -81,16 +86,30 @@ class DVRPSR_Environment:
 
     def _done(self, customer_index):
 
-        self.vehicle_done.scatter_(1, self.current_vehicle_index, torch.logical_or((customer_index == 0),
-                                                                                   (self.current_vehicle[:, :,
-                                                                                    2] <= 0)))
-        # print(self.veh_done, cust_idx==0,self.cur_veh[:,:,2]<=0, (cust_idx==0) | (self.cur_veh[:,:,2]<=0))
-        self.done = bool(self.vehicle_done.all())
+        #print(pending_custtomers, self.current_vehicle[:, :, 2])
+
+        self.vehicle_done.scatter_(1, self.current_vehicle_index,
+                                     torch.logical_or((self.current_vehicle[:, :, 2] <= 0),
+                                                      (customer_index == 0)))
+
+        # self.vehicle_done.scatter_(1, self.current_vehicle_index, self.current_vehicle[:, :, 2] <= 0)
+
+        #print('from done part of env')
+        #print(customer_index, self.vehicle_done, self.pending_customers, self.done)
+        #print(self.current_vehicle[:,:,2])
+
+
+        self.done = torch.logical_or(self.vehicle_done.all(),
+                                     (self.pending_customers == 0).all())
+        #print(self.done)
 
     def _update_mask(self, customer_index):
 
         self.new_customer = False
         self.served.scatter_(1, customer_index, customer_index > 0)
+        self.pending_customers = (self.served ^ True).float().sum(-1, keepdim=True) - 1
+
+        #print('pending_customers {}'.format(self.pending_customers))
 
         # cost for a vehicle to go to customer and back to deport considering service duration
         current_idx = self.current_vehicle[:, :, 4].long()
@@ -114,7 +133,9 @@ class DVRPSR_Environment:
         if veh_index is None:
             avail = self.vehicles[:, :, 3].clone()
             avail[self.vehicle_done] = float('inf')
+            #print(avail)
             self.current_vehicle_index = avail.argmin(1, keepdim=True)
+            #print(self.current_vehicle_index)
         else:
             self.current_vehicle_index = veh_index
 
@@ -123,7 +144,7 @@ class DVRPSR_Environment:
         self.current_vehicle_mask = self.mask.gather(1, self.current_vehicle_index[:, :, None].expand(-1, -1,
                                                                                                       self.nodes_count))
 
-    def _update_dynamic_customers(self):
+    def _update_dynamic_customers(self, veh_index):
 
         time = self.current_vehicle[:, :, 3].clone()
 
@@ -135,7 +156,7 @@ class DVRPSR_Environment:
             self.mask = self.mask ^ reveal_dyn_reqs[:, None, :].expand(-1, self.vehicle_count, -1)
             self.vehicle_done = torch.logical_and(self.vehicle_done, (reveal_dyn_reqs.any(1) ^ True).unsqueeze(1))
             self.vehicles[:, :, 3] = torch.max(self.vehicles[:, :, 3], time)
-            self._update_next_vehicle()
+            self._update_next_vehicle(veh_index)
 
     def reset(self):
         # reset vehicle (minibatch*veh_count*veh_feature)
@@ -147,12 +168,16 @@ class DVRPSR_Environment:
         self.vehicle_done = self.nodes.new_zeros((self.minibatch, self.vehicle_count), dtype=torch.bool)
         self.done = False
 
+        # initialize reward as tour length
+        self.tour_length = torch.zeros((self.minibatch, 1)).to(self.nodes.device)
+
         # reset cust_mask
         self.customer_mask = self.nodes[:, :, 3] > 0
 
         # reset new customers and served customer since now to zero (all false)
         self.new_customer = True
         self.served = torch.zeros_like(self.customer_mask)
+        self.pending_customers = (self.served ^ True).float().sum(-1, keepdim=True) - 1
 
         # reset mask (minibatch*veh_count*nodes)
         self.mask = self.customer_mask[:, None, :].repeat(1, self.vehicle_count, 1)
@@ -166,36 +191,42 @@ class DVRPSR_Environment:
         self.current_vehicle_mask = self.mask.gather(1,
                                                      self.current_vehicle_index[:, :, None].expand(-1, -1,
                                                                                                    self.nodes_count))
+    #
+    # def get_reward(self):
+    #     if self.done:
+    #         # penalty for pending customers
+    #         #print('when all done still pending customers{}'.format(self.pending_customers))
+    #         self.tour_length += self.pending_customers * self.pending_cost
+    #         #print(self.tour_length)
+    #     return self.tour_length
 
     def step(self, customer_index, veh_index=None):
         dest = self.nodes.gather(1, customer_index[:, :, None].expand(-1, -1, self.customer_feature))
         dist, dyn_cust = self._update_current_vehicles(dest, customer_index)
 
-        static_cust = (dest[:, :, 3] <= 0).float()
-
         self._done(customer_index)
         self._update_mask(customer_index)
         self._update_next_vehicle(veh_index)
+        self.tour_length += dist
 
-        # reward = -dist * (1 - dyn_cust*self.dynamic_reward)
-        # reward = self.current_vehicle[:, :, 7] - self.current_vehicle[:, :, 6]
-        #pending_static_customers = torch.logical_and((self.served ^ True),
-        #                                             (self.nodes[:, :, 3] == 0)).float().sum(-1, keepdim=True) - 1
-        reward = -dist
-        reward += static_cust*self.pending_cost
-
+        reward = dist
 
         if self.done:
             # penalty for pending customers
-            pending_customers = torch.logical_and((self.served ^ True),
-                                                  (self.nodes[:, :, 3] >= 0)).float().sum(-1, keepdim=True) - 1
+            #print('when all done still pending customers{}'.format(self.pending_customers))
 
-            # TODO: penalty for having unused time budget as well not serving customers
-            reward -= self.dynamic_reward * pending_customers
+            pending_static_customers = torch.logical_and((self.served ^ True),
+                                                         (self.nodes[:, :, 3] == 0)).float().sum(-1, keepdim=True) - 1
 
-        self._update_dynamic_customers()
+            total_pend = self.pending_customers * self.pending_cost + pending_static_customers*self.pending_cost
+            #print(self.tour_length)
+            reward += total_pend
+
+        if (self.pending_customers > 0).any():
+            self._update_dynamic_customers(veh_index)
 
         return reward
+
 
     def state_dict(self, dest_dict=None):
         if dest_dict is None:

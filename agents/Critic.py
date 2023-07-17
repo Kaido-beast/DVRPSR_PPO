@@ -33,7 +33,7 @@ class Critic(nn.Module):
                                                                       env.current_vehicle_index,
                                                                       env.current_vehicle_mask)
             compatibility = self.model.score_customers(_vehicle_presentation)
-            prop = self.model.get_prop(compatibility, env.current_vehicle_mask)
+            prop = self.model.get_prop(compatibility, env.current_vehicle, env.current_vehicle_mask)
             dist = Categorical(prop)
             customer_index = dist.sample()
 

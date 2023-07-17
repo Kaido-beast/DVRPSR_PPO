@@ -90,9 +90,10 @@ class GraphMultiHeadAttention(nn.Module):
             # TODO: edge mask (is it required)
             edge_project = self.edge_embedding(edge_attributes).view(
                 -1, size_Q, size_Q, self.num_head, self.edge_size_per_head)
-            edge_project_expanded = edge_project.mean(-1).permute(0, 3, 1, 2)
+            edge_project = edge_project.mean(-1).permute(0, 3, 1, 2)
 
-            attention = attention * edge_project_expanded
+            attention = attention * edge_project
+            attention *= self.scaling_factor
 
         if mask is not None:
 
