@@ -1,4 +1,5 @@
-from .GraphMultiHeadAttention import GraphMultiHeadAttention
-from .Encoder import GraphEncoder
-from .GraphAttentionModel import GraphAttentionModel
-from .GraphAttentionModel_v2 import GraphAttentionModel_v1
+from nets.GraphMultiHeadAttention import GraphMultiHeadAttention
+from nets.Encoder import GraphEncoder, GraphEncoderlayer
+from nets.GraphAttentionModel import GraphAttentionModel
+from nets.GraphAttentionModel_v2 import GraphAttentionModel_v1
+from nets.Critic import Critic

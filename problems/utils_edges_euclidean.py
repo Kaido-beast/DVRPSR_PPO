@@ -12,13 +12,10 @@ def compute_edge_attributes(batch, V):
             edges[i][j][0] = distance
     return edges.reshape(-1, 1)
 
-def get_edges_attributes_parallel(batch_size, graph, depot, locations, V):
+def get_edges_attributes_parallel(batch_size, locations, V):
     print('Initialzing edges')
-    edge_depot = torch.zeros((batch_size, 1, 2))
-    edge_depot[:, :, 0] = depot[0][1]
-    edge_depot[:, :, 1] = depot[0][2]
-    edge_data = torch.cat((edge_depot, locations[:, :, 1:3]), dim=1)
 
+    edge_data = locations[:, :, 0:2]
     # generate edge index
     edges_index = []
 

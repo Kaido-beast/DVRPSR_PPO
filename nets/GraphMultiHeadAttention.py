@@ -6,7 +6,6 @@ import torch.nn.functional as F
 class GraphMultiHeadAttention(nn.Module):
 
     def __init__(self, num_head, query_size, key_size=None, value_size=None, edge_dim_size=None, bias=False):
-
         super(GraphMultiHeadAttention, self).__init__()
         self.num_head = num_head
         self.query_size = query_size
@@ -37,25 +36,19 @@ class GraphMultiHeadAttention(nn.Module):
         nn.init.uniform_(self.value_embedding.weight, -inv_sq_dv, inv_sq_dv)
 
     def precompute(self, keys, values=None):
-
         values = keys if values is None else values
-
         size_KV = keys.size(-2)
-
         self.K_project_pre = self.key_embedding(keys).view(
-            -1, size_KV, self.num_head, self.keys_per_head).permute(0, 2, 3, 1)
+                             -1, size_KV, self.num_head, self.keys_per_head).permute(0, 2, 3, 1)
 
         self.V_project_pre = self.value_embedding(values).view(
             -1, size_KV, self.num_head, self.values_per_head).permute(0, 2, 1, 3)
 
     def forward(self, queries, keys=None, values=None, edge_attributes=None, mask=None, edge_mask=None):
-
         *batch_size, size_Q, _ = queries.size()
-
         # get queries projection
         Q_project = self.query_embedding(queries).view(
             -1, size_Q, self.num_head, self.keys_per_head).permute(0, 2, 1, 3)
-
         # get keys projection
         if keys is None:
             if self.K_project_pre is None:
@@ -87,27 +80,19 @@ class GraphMultiHeadAttention(nn.Module):
 
         # if edge attributes are required
         if edge_attributes is not None:
-            # TODO: edge mask (is it required)
             edge_project = self.edge_embedding(edge_attributes).view(
                 -1, size_Q, size_Q, self.num_head, self.edge_size_per_head)
             edge_project = edge_project.mean(-1).permute(0, 3, 1, 2)
-
             attention = attention * edge_project
-            attention *= self.scaling_factor
 
         if mask is not None:
-
             if mask.numel() * self.num_head == attention.numel():
                 m = mask.view(-1, 1, size_Q, size_KV).expand_as(attention)
             else:
                 m = mask.view(-1, 1, 1, size_KV).expand_as(attention)
-
             attention[m.bool()] = -float('inf')
 
         attention = F.softmax(attention, dim=-1)
         attention = attention.matmul(V_project).permute(0, 2, 1, 3).contiguous().view(
             *batch_size, size_Q, self.num_head * self.values_per_head)
-
-        output = self.recombine(attention)
-
-        return output
+        return self.recombine(attention)

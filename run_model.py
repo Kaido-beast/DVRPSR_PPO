@@ -1,11 +1,8 @@
-
 from problems import *
 from TrainPPOAgent import *
 from utils.config import *
 from utils.ortool import *
 from utils.Misc import *
-from utils.save_load import *
-from  line_profiler import line_profiler
 
 import warnings
 warnings.filterwarnings('error', category=UnicodeWarning)
@@ -32,24 +29,25 @@ def run(args):
     ## load DVRPSR problem
 
     verbose_print("Uploading data for training {}".format(args.iter_count * args.batch_size), end=" ", flush=True)
-    train_data = torch.load("./data/train/{}_{}_{}_{}/train_n.pth".format(args.Lambda,
-                                                                                     args.dod,
-                                                                                     args.vehicle_count,
-                                                                                     args.horizon))
+    train_data = torch.load("./data/train/{}_{}_{}_{}/train.pth".format(args.Lambda,
+                                                                        args.dod,
+                                                                        args.vehicle_count,
+                                                                        args.horizon))
     verbose_print("Done")
 
     verbose_print("Uploading data for testing {}".format(args.test_batch_size), end=" ", flush=True)
     # test data is not normalized
-    test_data = torch.load("./data/test/{}_{}_{}_{}/test_un.pth".format(args.Lambda,
-                                                                                         args.dod,
-                                                                                         args.vehicle_count,
-                                                                                         args.horizon))
+    test_data = torch.load("./data/test/{}_{}_{}_{}/test.pth".format(args.Lambda,
+                                                                     args.dod,
+                                                                     args.vehicle_count,
+                                                                     args.horizon))
     verbose_print("Done")
 
     if ortool_available:
         reference_routes = ortool_solve(test_data)
     else:
         reference_routes = None
+        reference_costs = None
         verbose_print(" No reference to calculate optimality gap", end=" ", flush=True)
 
     test_data.normalize()
@@ -64,13 +62,12 @@ def run(args):
 
     env_params_test = [args.pending_cost,
                        args.dynamic_reward]
-    env_test = env(test_data, None, None, None, *env_params_test)
+    env_test = env(test_data, None, None, None, pending_cost=args.pending_cost)
 
     if reference_routes is not None:
-        reference_costs = eval_apriori_routes(env_test, reference_routes, 2)
+        reference_costs = eval_apriori_routes(env_test, reference_routes, 10)
         print("Reference cost on test dataset {:5.2f} +- {:5.2f}".format(reference_costs.mean(),
                                                                          reference_costs.std()))
-
     env_test.nodes = env_test.nodes.to(device)
     env_test.distance_matrix = env_test.distance_matrix.to(device)
     env_test.edge_attributes = env_test.edge_attributes.to(device)
@@ -91,55 +88,17 @@ def run(args):
 
     ## Checkpoints
     verbose_print("Creating Output directry...", end=" ", flush=True)
-    args.output_dir = "./output/gtm_{}_{}_{}_{}".format( args.Lambda,
+    args.output_dir = "./output/gtm_debug_{}_{}_{}_{}".format( args.Lambda,
                                                         args.dod,
                                                         args.vehicle_count,
-                                                        time.strftime("%y%m%d")
-    ) if args.output_dir is None else args.output_dir
+                                                        time.strftime("%y%m%d")) if args.output_dir is None else args.output_dir
 
     os.makedirs(args.output_dir, exist_ok=True)
     write_config_file(args, os.path.join(args.output_dir, "args.json"))
     verbose_print("Create Output dir {}".format(args.output_dir), end=" ", flush=True)
 
-    ## Optimizer and LR Scheduler
-    verbose_print("Initializing ADAM Optimizer ...", end=" ", flush=True)
-
-    #optim = Adam([{"params": trainppo.agent.policy.parameters(), 'lr': args.learning_rate}])
-
-    # if args.rate_decay is not None:
-    #     lr_scheduler = LambdaLR(optim,
-    #                             lr_lambda=[lambda epoch: args.rate_decay ** epoch])
-
-    if args.resume_state is None:
-        start_epoch = 0
-    else:
-        start_epoch = load_checkpoint(args, trainppo.agent.old_policy)
-
-    verbose_print("Running PPO models ")
-    train_stats = []
-    test_stats = []
-
-    try:
-        for epoch in range(start_epoch, args.epoch_count):
-
-            #print('running epoch {}'.format(epoch+1))
-            train_stats.append(trainppo.run_train(args, train_data, env, env_params_train, device, epoch))
-
-            agent = trainppo.agent.old_policy.to(device)
-
-            if reference_routes is not None:
-                test_stats.append(trainppo.test_epoch(args, env_test, agent, reference_costs))
-            # if args.rate_decay is not None:
-            #     lr_scheduler.step()
-            if args.grad_norm_decay is not None:
-                args.max_grad_norm *= args.grad_norm_decay
-            if (epoch + 1) % args.checkpoint_period == 0:
-                save_checkpoint(args, epoch, agent)
-
-    except KeyboardInterrupt:
-        save_checkpoint(args, epoch, agent)
-    finally:
-        export_train_test_stats(args, start_epoch, train_stats, test_stats)
+    verbose_print('start training of DVRPSR model')
+    trainppo.run_train(args, train_data, env, env_params_train, device, env_test, reference_costs)
 
 
 if __name__ == "__main__":

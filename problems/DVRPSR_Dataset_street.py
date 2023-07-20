@@ -178,7 +178,7 @@ if __name__ == '__main__':
     elif train_test_val == 'test':
         torch.save(data, os.path.join(folder_path, "test_un.pth"))
     else:
-        torch.save(data, os.path.join(folder_path, "val_un.pth"))
+        torch.save(data, os.path.join(folder_path, "val_ung.pth"))
 
     print(f'Time to run {batch_size} batches is {end_time-start_time}')
     print(data.edges_attributes.size())
