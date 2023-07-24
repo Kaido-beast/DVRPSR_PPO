@@ -163,11 +163,11 @@ if __name__ == '__main__':
     folder_path = "../data/{}/{}_{}_{}_{}".format(train_test_val, Lambda, dod, vehicle_count, horizon)
     os.makedirs(folder_path, exist_ok=True)
     if train_test_val == 'train':
-        torch.save(data, os.path.join(folder_path, "train.pth"))
+        torch.save(data, os.path.join(folder_path, "train_debug.pth"))
     elif train_test_val == 'test':
-        torch.save(data, os.path.join(folder_path, "test.pth"))
+        torch.save(data, os.path.join(folder_path, "test_debug.pth"))
     else:
-        torch.save(data, os.path.join(folder_path, "val.pth"))
+        torch.save(data, os.path.join(folder_path, "val_ung.pth"))
 
     print(f'Time to run {batch_size} batches is {end_time-start_time}')
     #print(data.nodes[0])

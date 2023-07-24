@@ -43,7 +43,7 @@ class AgentPPO:
         self.epsilon_clip = epsilon_clip
         # initialize the Adam optimizer
         self.optim = torch.optim.Adam(self.policy.parameters(), lr=learning_rate)
-        self.MSE_loss = nn.MSELoss()
+        self.MSE_loss = nn.MSELoss(reduction='none')
         # actor-critic parameters
         self.customer_feature = customer_feature
         self.vehicle_feature = vehicle_feature
@@ -84,15 +84,12 @@ class AgentPPO:
 
         self.policy.to(device)
         data_loader = DataLoader(datas, batch_size=self.batch_size, shuffle=False)
-        lr_scheduler = LambdaLR(self.optim, lr_lambda= lambda f:0.96**epoch)
-
-        self.entropy_value = self.entropy_value * (0.99**epoch)
-        self.epsilon_clip = self.epsilon_clip * (0.99**epoch)
+        lr_scheduler = LambdaLR(self.optim, lr_lambda= lambda f: 0.96**epoch)
         env = env if env is not None else DVRPSR_Environment
 
         for i in range(self.ppo_epoch):
             self.policy.train()
-            loss_t, norm_R, critic_R, loss_a, loss_mse, loss_e = [], [], [], [], [], []
+            loss_t, norm_R, critic_R, loss_a, loss_mse, loss_e, ratios = [], [], [], [], [], [], []
             for batch_index, minibatch_data in enumerate(data_loader):
                 minibatch_data.to(device)
                 nodes = minibatch_data.nodes
@@ -103,19 +100,21 @@ class AgentPPO:
                 dyna_env = env(None, nodes, edge_attributes, *env_params)
                 entropy, log_probs, values = self.policy.evaluate(dyna_env, old_actions_for_env, True)
 
-                R_norm = minibatch_data.rewards.to(device).squeeze(-1)
-                mse_loss = self.MSE_loss(R_norm, values)
-                ratio = torch.exp(log_probs - minibatch_data.log_probs)
+                R_norm = minibatch_data.rewards.to(device)
+                R_norm = self.advantage_normalization(R_norm)
+                mse_loss = self.MSE_loss(values, R_norm)
+
+                ratio = torch.exp(log_probs - minibatch_data.log_probs).squeeze(1)
 
                 # PPO advantage
-                advantage = R_norm - values.detach()
+                advantage = (R_norm - values.detach())
                 # PPO overall loss function
                 actor_loss1 = ratio * advantage
                 actor_loss2 = torch.clamp(ratio, 1 - self.epsilon_clip, 1 + self.epsilon_clip) * advantage
                 actor_loss = torch.min(actor_loss1, actor_loss2)
 
                 # total loss
-                loss = actor_loss + 0.5 * mse_loss - self.entropy_value * entropy
+                loss = actor_loss + 0.5 * mse_loss - self.entropy_value*entropy.squeeze(1)
 
                 # optimizer and backpropogation
                 self.optim.zero_grad()
@@ -130,7 +129,12 @@ class AgentPPO:
                 loss_mse.append(torch.mean(mse_loss.detach()).item())
                 loss_e.append(torch.mean(entropy.detach()).item())
                 critic_R.append(torch.mean(values.detach()).item())
+                ratios.append(torch.mean(ratio.detach()).item())
 
         self.old_policy.load_state_dict(self.policy.state_dict())
 
-        return loss_t, loss_a, loss_mse, loss_e, norm_R, critic_R
+        return loss_t, loss_a, loss_mse, loss_e, norm_R, critic_R, ratios
+
+
+if __name__ == '__main__':
+    raise Exception('Cannot be called from main')

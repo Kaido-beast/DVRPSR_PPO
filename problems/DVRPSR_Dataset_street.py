@@ -144,7 +144,7 @@ if __name__ == '__main__':
     args = ParseArguments()
     start_time = time()
 
-    train_test_val = 'test'
+    train_test_val = 'train'
 
     if train_test_val == 'train':
         batch_size = args.batch_size * args.iter_count

@@ -34,8 +34,8 @@ class GraphEncoder(nn.Module):
             self.add_module(str(l), GraphEncoderlayer(num_head, model_size, ff_size, edge_dim_size))
 
     def forward(self, h, e=None, mask=None):
-        h_in = h
+        h_out = h
         for child in self.children():
-            h_out = child(h_in, e , mask=mask)
-            h_in = h_out + h_in
-        return h
+            h_out = child(h_out, e, mask=mask)
+            #h_in = h_out + h_in
+        return h_out

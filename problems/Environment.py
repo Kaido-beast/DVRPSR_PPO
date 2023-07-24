@@ -143,6 +143,10 @@ class DVRPSR_Environment:
                                                      self.current_vehicle_index[:, :, None].
                                                      expand(-1, -1, self.nodes_count))
 
+    def get_reward(self):
+        if self.done:
+            return self.tour_length + self.pending_cost*self.pending_customers
+
     def step(self, customer_index, veh_index=None):
         dest = self.nodes.gather(1, customer_index[:, :, None].expand(-1, -1, self.customer_feature))
         dist = self._update_current_vehicles(dest, customer_index)
@@ -153,25 +157,32 @@ class DVRPSR_Environment:
 
         self.tour_length += dist
 
-        if self.done:
-            # penalty for all and static pending customers
-            pending_static_customers = torch.logical_and((self.served ^ True),
-                                                         (self.nodes[:, :, 3] == 0)).float().sum(-1, keepdim=True) - 1
-            total_pend = self.pending_customers * self.pending_cost + pending_static_customers*self.pending_cost
+        #reward = -dist
+        #reward = torch.zeros((self.minibatch, 1)).to(self.nodes.device)
+        #reward = torch.full((self.minibatch, 1), 1.0).to(self.nodes.device)
+
+        # if self.done:
+        #     # penalty for all and static pending customers
+        #     pending_pending_customers = torch.logical_and((self.served ^ True),
+        #                                                  (self.nodes[:, :, 3] >= 0)).float().sum(-1, keepdim=True) - 1
+            #total_pend = self.pending_customers * self.pending_cost
+            #total_served = (self.served).float().sum(-1, keepdims=True) - 1
 
             # Penalties for violating constraints (e.g., exceeding the time budget)
             # violations = self.vehicles[:, :, 2] < 0
             # violations_cost = violations.float().sum(-1, keepdim=True) * self.budget_penalty
 
             # Tour length reduction (negative of total tour length)
-            tour_length_reduction = self.tour_length
 
             # Calculate the total reward
-            reward = tour_length_reduction + total_pend
-            return reward
-        else:
-            # If the episode is not done, return 0 reward
-            return torch.zeros((self.minibatch, 1)).to(self.nodes.device)
+            # print('Total pending customers {}, static customers {}'.format(self.pending_customers, pending_static_customers))
+            # print('total penalties {}'.format(-(self.tour_length + total_pend)))
+            # reward = self.tour_length
+            # # print(self.pending_customers, reward)
+            # return reward
+        # else:
+        #     # If the episode is not done, return 0 reward
+        #     return reward
 
 
     def state_dict(self, dest_dict=None):

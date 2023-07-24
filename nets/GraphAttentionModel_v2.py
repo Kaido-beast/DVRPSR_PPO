@@ -69,10 +69,10 @@ class GraphAttentionModel_v1(nn.Module):
 
     def get_prop(self, compact, current_vehicle, vehicle_mask=None):
         compact[vehicle_mask] = -float('inf')
-        # waiting heuristic in case there is no customer, vehicle should wait at current location
-        if (current_vehicle[:, :, 5] != current_vehicle[:, :, 4]).all():
-            compact.scatter_(2, current_vehicle[:, :, 5].squeeze().long().unsqueeze(-1).unsqueeze(-1), -self.tanh_xplor)
-        compact[:, :, 0] = -(self.tanh_xplor**1.1)
+        #waiting heuristic in case there is no customer, vehicle should wait at current location
+        # if (current_vehicle[:, :, 5] != current_vehicle[:, :, 4]).all():
+        #     compact.scatter_(2, current_vehicle[:, :, 5].squeeze().long().unsqueeze(-1).unsqueeze(-1), -self.tanh_xplor)
+        #compact[:, :, 0] = -(self.tanh_xplor**1.1)
         #print(compact.size(), compact)
         compact = F.softmax(compact, dim=-1)
         return compact
@@ -83,6 +83,7 @@ class GraphAttentionModel_v1(nn.Module):
                                                               env.current_vehicle_mask)
         compact = self.score_customers(_vehicle_representation)
         prop = self.get_prop(compact, env.current_vehicle, env.current_vehicle_mask)
+        #print(compact, prop)
 
         # step actions based on model act or evalaute
         if old_action is not None:
@@ -91,8 +92,8 @@ class GraphAttentionModel_v1(nn.Module):
             is_done = float(env.done)
 
             entropy = dist.entropy()
-            entropy *= (1. - is_done)
-            old_actions_logp *= (1. - is_done)
+            # entropy *= (1. - is_done)
+            # old_actions_logp *= (1. - is_done)
             ## get values from critic networks
             val = self.critic(prop, env.current_vehicle_mask, old_action[:,1].unsqueeze(-1))
             return old_action[:, 1].unsqueeze(-1), entropy, old_actions_logp, val
@@ -108,7 +109,7 @@ class GraphAttentionModel_v1(nn.Module):
             is_done = float(env.done)
 
             logp = dist.log_prob(customer_index)
-            logp *= (1. - is_done)
+            #logp = logp*(1. - is_done)
             return customer_index, logp
 
     def forward(self, env, old_actions=None, is_update=False):
@@ -127,8 +128,8 @@ class GraphAttentionModel_v1(nn.Module):
                 customer_index, entropy, logp, value = self.step(env, old_action)
                 env.step(customer_index, next_vehicle_index)
 
-                old_actions_logps.append(logp)
-                entropys.append(entropy)
+                old_actions_logps.append(logp.unsqueeze(1))
+                entropys.append(entropy.unsqueeze(1))
                 values.append(value)
 
             entropys = torch.cat(entropys, dim=1)
@@ -139,6 +140,7 @@ class GraphAttentionModel_v1(nn.Module):
             old_actions_logps = old_actions_logps.sum(1)
             ## sum up the critic values
             values = torch.cat(values, dim=1).sum(1)
+            #print(old_actions_logps)
             return entropy, old_actions_logps, values
 
         else:
@@ -149,11 +151,16 @@ class GraphAttentionModel_v1(nn.Module):
                     self.encode_customers(env, env.customer_mask)
                 customer_index, logp = self.step(env)
                 actions.append((env.current_vehicle_index, customer_index))
-                logps.append(logp)
-                rewards.append(env.step(customer_index))
+                logps.append(logp.unsqueeze(1))
+                env.step(customer_index)
+
+            rewards = torch.cat([env.get_reward()], dim=1)
+            #print(rewards)
+            rewards = rewards.sum(dim=1)
+
             logps = torch.cat(logps, dim=1)
             logp_sum = logps.sum(dim=1)
 
-            rewards = torch.cat(rewards, dim=1)
-            rewards = rewards.sum(dim=1)
+            #print(logp_sum)
+
             return actions, logp_sum, rewards

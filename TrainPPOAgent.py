@@ -81,6 +81,7 @@ class TrainPPOAgent:
                         nodes = nodes.view(self.batch_size, self.customers_count, 4)
                         edge_attributes = edge_attributes.view(self.batch_size, self.customers_count * self.customers_count, 1)
                         dyna_env = env(None, nodes, edge_attributes, *env_params)
+                        #print('training part of PPO')
                         actions, logps, rewards = self.agent.old_policy.act(dyna_env)
                         actions = formate_old_actions(actions)
                         actions = torch.tensor(actions)
@@ -97,7 +98,10 @@ class TrainPPOAgent:
                         memory.actions.extend(actions)
 
                         if (batch_index + 1) % self.update_timestep == 0:
-                            loss_total, loss_a, loss_m, loss_e, norm_r, critic_r = self.agent.update(memory, epoch, datas, env, env_params, device)
+                            #print('updating part of PPO')
+                            loss_total, loss_a, loss_m, loss_e, norm_r, critic_r, ratios = self.agent.update(memory, epoch,
+                                                                                                              datas, env,
+                                                                                                              env_params, device)
                             memory.clear()
 
                         prob = torch.stack([logps]).sum(dim=0).exp().mean()
@@ -109,17 +113,18 @@ class TrainPPOAgent:
                         loss_e = torch.tensor(loss_e).mean()
                         norm_r = torch.tensor(norm_r).mean()
                         critic_r = torch.tensor(critic_r).mean()
+                        r = torch.tensor(ratios).mean()
 
                         progress.set_postfix_str("p={:6.4g} val={:6.4g} l_t={:6.4g} l_a={:6.4g} "
-                                                 "l_m={:6.4g} l_e={:6.4g} r_n={:6.4g} c_n={:6.4g} ".format(
+                                                 "l_m={:6.4g} l_e={:6.4g} r_n={:6.4g} c_n={:6.4g} r={:6.4g} ".format(
                                                   prob.item(), val.item(), loss_total.item(), loss_a.item(),
-                                                  loss_m.item(), loss_e.item(), norm_r.item(), critic_r.item()))
+                                                  loss_m.item(), loss_e.item(), norm_r.item(), critic_r.item(), r.item()))
 
                         epoch_loss += loss_total.item()
                         epoch_prop += prob.item()
                         epoch_val += val.item()
                         epoch_c_val += critic_r.item()
-
+                #print('Epoch loss {}, epoch prop {}, epoch reward {}, critic reward {}'.format(epoch_loss, epoch_prop, epoch_val, epoch_c_val))
                 train_stats.append(stats / args.iter_count for stats in (epoch_loss, epoch_prop, epoch_val, epoch_c_val))
                 if ref_cost is not None:
                     test_stats.append(self.test_epoch(args, env_test, ref_cost))
