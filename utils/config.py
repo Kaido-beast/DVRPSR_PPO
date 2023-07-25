@@ -48,7 +48,7 @@ def ParseArguments(argv=None):
 
     ### Environment related arguments
     parser.add_argument_group(" Environment for DVRPSR")
-    parser.add_argument("--pending-cost", type=int, default=0.5,
+    parser.add_argument("--pending-cost", type=int, default=1,
                         help='Pending cost for not serving a static customers in routes')
     parser.add_argument("--dynamic-reward", type=int, default=0.5,
                         help="Reward for serving a Dynamic customer")
@@ -80,8 +80,8 @@ def ParseArguments(argv=None):
     parser.add_argument("--epsilon-clip", type=int, default=0.2)
     parser.add_argument("--timestep", type=int, default=1)
 
-    parser.add_argument("--epoch-count", "-e", type=int, default=100)
-    parser.add_argument("--iter-count", "-i", type=int, default=50)
+    parser.add_argument("--epoch-count", "-e", type=int, default=50)
+    parser.add_argument("--iter-count", "-i", type=int, default=100)
     parser.add_argument("--batch-size", "-b", type=int, default=256)
     parser.add_argument("--rate-decay", '-d', type=float, default=0.96)
     parser.add_argument("--max-grad-norm", type=float, default=2)

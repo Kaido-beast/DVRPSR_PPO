@@ -32,8 +32,7 @@ class GraphMultiHeadAttention(nn.Module):
     def initialize_weights(self):
         nn.init.xavier_uniform_(self.query_embedding.weight)
         nn.init.xavier_uniform_(self.key_embedding.weight)
-        inv_sq_dv = self.value_size ** -0.5
-        nn.init.uniform_(self.value_embedding.weight, -inv_sq_dv, inv_sq_dv)
+        nn.init.xavier_uniform_(self.value_embedding.weight)
 
     def precompute(self, keys, values=None):
         values = keys if values is None else values

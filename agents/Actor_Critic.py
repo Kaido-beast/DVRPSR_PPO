@@ -1,5 +1,5 @@
 import torch.nn as nn
-from nets import GraphAttentionModel_v1
+from nets import GraphAttentionModel
 
 
 class Actor_Critic(nn.Module):
@@ -16,14 +16,14 @@ class Actor_Critic(nn.Module):
                  edge_embedding_dim=128,
                  greedy=False):
         super(Actor_Critic, self).__init__()
-        model = GraphAttentionModel_v1(customers_count, customer_feature, vehicle_feature, model_size, encoder_layer,
+        model = GraphAttentionModel(customers_count, customer_feature, vehicle_feature, model_size, encoder_layer,
                                        num_head, ff_size_actor, tanh_xplor, edge_embedding_dim, greedy)
         self.actor = model
 
     def act(self, env, old_actions=None, is_update=False):
-        actions, logps, rewards = self.actor(env)
-        return actions, logps, rewards
+        actions, logps, rewards, state_values = self.actor.act(env)
+        return actions, logps, rewards, state_values
 
     def evaluate(self, env, old_actions, is_update):
-        entropys, old_logps, values = self.actor(env, old_actions, is_update)
+        entropys, old_logps, values = self.actor.evaluate(env, old_actions)
         return entropys, old_logps, values

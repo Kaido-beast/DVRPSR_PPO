@@ -4,11 +4,6 @@ from torch.utils.data import DataLoader
 
 from agents import AgentPPO
 from utils import Memory
-from utils.Misc import formate_old_actions
-import tqdm
-from tqdm import tqdm
-
-from utils.config import *
 from utils.ortool import *
 from utils.Misc import *
 from utils.save_load import *
@@ -81,19 +76,20 @@ class TrainPPOAgent:
                         nodes = nodes.view(self.batch_size, self.customers_count, 4)
                         edge_attributes = edge_attributes.view(self.batch_size, self.customers_count * self.customers_count, 1)
                         dyna_env = env(None, nodes, edge_attributes, *env_params)
+
                         #print('training part of PPO')
-                        actions, logps, rewards = self.agent.old_policy.act(dyna_env)
+                        actions, logps, rewards, values = self.agent.old_policy.act(dyna_env)
                         actions = formate_old_actions(actions)
                         actions = torch.tensor(actions)
                         actions = actions.permute(0, 2, 1)
 
                         actions = actions.to(torch.device('cpu')).detach()
                         logps = logps.to(torch.device('cpu')).detach()
-                        rewards = rewards.to(torch.device('cpu')).detach()
 
                         memory.nodes.extend(minibatch[0])
                         memory.edge_attributes.extend(minibatch[1])
                         memory.rewards.extend(rewards)
+                        memory.values.extend(values)
                         memory.log_probs.extend(logps)
                         memory.actions.extend(actions)
 
@@ -105,7 +101,7 @@ class TrainPPOAgent:
                             memory.clear()
 
                         prob = torch.stack([logps]).sum(dim=0).exp().mean()
-                        val = torch.stack([rewards]).sum(dim=0).mean()
+                        val = torch.stack(rewards).sum(dim=0).mean()
 
                         loss_total = torch.tensor(loss_total).mean()
                         loss_a = torch.tensor(loss_a).mean()
@@ -124,7 +120,7 @@ class TrainPPOAgent:
                         epoch_prop += prob.item()
                         epoch_val += val.item()
                         epoch_c_val += critic_r.item()
-                #print('Epoch loss {}, epoch prop {}, epoch reward {}, critic reward {}'.format(epoch_loss, epoch_prop, epoch_val, epoch_c_val))
+
                 train_stats.append(stats / args.iter_count for stats in (epoch_loss, epoch_prop, epoch_val, epoch_c_val))
                 if ref_cost is not None:
                     test_stats.append(self.test_epoch(args, env_test, ref_cost))
@@ -145,8 +141,8 @@ class TrainPPOAgent:
         costs = env.nodes.new_zeros(env.minibatch)
 
         for _ in range(10):
-            _, _, rewards = model.act(env)
-            costs += torch.stack([rewards]).sum(dim=0).squeeze(-1)
+            _, _, rewards, values = model.act(env)
+            costs += torch.stack(rewards).sum(dim=0).squeeze(-1)
 
         costs = costs / 10
         mean = costs.mean()

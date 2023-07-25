@@ -29,10 +29,11 @@ def eval_apriori_routes(dyna, routes, rollout_count):
             cust_idx = dyna.nodes.new_tensor([[next(routes_it[n][i.item()])]
                                              for n,i in enumerate(dyna.current_vehicle_index)],
                                              dtype = torch.int64)
-            dyna.step(cust_idx)
-        rewards = torch.cat([dyna.get_reward()], dim=1)
-        #print(rewards)
-        rewards = rewards.sum(dim=1)
+            rewards.append(dyna.step(cust_idx))
 
-        mean_cost += torch.stack([rewards]).sum(dim=0).squeeze(-1)
+        #rewards = torch.cat(rewards, dim=1)
+        #print(rewards)
+        #rewards = rewards.sum(dim=1)
+
+        mean_cost += torch.stack(rewards).sum(dim=0).squeeze(-1)
     return mean_cost / rollout_count

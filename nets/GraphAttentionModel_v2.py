@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions.categorical import Categorical
-from nets.GraphAttentionModel import GraphMultiHeadAttention
+from nets.GraphMultiHeadAttention import GraphMultiHeadAttention
 from nets.Encoder import GraphEncoder
 from nets.Critic import Critic
 
@@ -69,11 +69,14 @@ class GraphAttentionModel_v1(nn.Module):
 
     def get_prop(self, compact, current_vehicle, vehicle_mask=None):
         compact[vehicle_mask] = -float('inf')
-        #waiting heuristic in case there is no customer, vehicle should wait at current location
+        ###########################################################################################
+        # waiting heuristic in case there is no customer, vehicle should wait at current location
         # if (current_vehicle[:, :, 5] != current_vehicle[:, :, 4]).all():
-        #     compact.scatter_(2, current_vehicle[:, :, 5].squeeze().long().unsqueeze(-1).unsqueeze(-1), -self.tanh_xplor)
-        #compact[:, :, 0] = -(self.tanh_xplor**1.1)
-        #print(compact.size(), compact)
+        #     compact.scatter_(2,
+        #                      current_vehicle[:, :, 5].squeeze().long().unsqueeze(-1).unsqueeze(-1),
+        #                      -self.tanh_xplor)
+        # compact[:, :, 0] = -(self.tanh_xplor**1.1)
+        # ##########################################################################################
         compact = F.softmax(compact, dim=-1)
         return compact
 
@@ -109,8 +112,9 @@ class GraphAttentionModel_v1(nn.Module):
             is_done = float(env.done)
 
             logp = dist.log_prob(customer_index)
+            val = self.critic(prop, env.current_vehicle_mask, customer_index)
             #logp = logp*(1. - is_done)
-            return customer_index, logp
+            return customer_index, logp, val
 
     def forward(self, env, old_actions=None, is_update=False):
 
@@ -139,28 +143,29 @@ class GraphAttentionModel_v1(nn.Module):
             old_actions_logps = torch.cat(old_actions_logps, dim=1)
             old_actions_logps = old_actions_logps.sum(1)
             ## sum up the critic values
-            values = torch.cat(values, dim=1).sum(1)
+            #values = torch.cat(values, dim=1)
             #print(old_actions_logps)
             return entropy, old_actions_logps, values
 
         else:
             env.reset()
-            actions, logps, rewards = [], [], []
+            actions, logps, rewards, critic_values = [], [], [], []
             while not env.done:
                 if env.new_customer:
                     self.encode_customers(env, env.customer_mask)
-                customer_index, logp = self.step(env)
+                customer_index, logp, val = self.step(env)
                 actions.append((env.current_vehicle_index, customer_index))
                 logps.append(logp.unsqueeze(1))
-                env.step(customer_index)
+                rewards.append(env.step(customer_index))
+                critic_values.append(val)
 
-            rewards = torch.cat([env.get_reward()], dim=1)
+            #rewards = torch.cat([env.get_reward()], dim=1)
             #print(rewards)
-            rewards = rewards.sum(dim=1)
+            #rewards = rewards.sum(dim=1)
 
             logps = torch.cat(logps, dim=1)
             logp_sum = logps.sum(dim=1)
 
             #print(logp_sum)
 
-            return actions, logp_sum, rewards
+            return actions, logp_sum, rewards, critic_values

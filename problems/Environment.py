@@ -142,10 +142,10 @@ class DVRPSR_Environment:
         self.current_vehicle_mask = self.mask.gather(1,
                                                      self.current_vehicle_index[:, :, None].
                                                      expand(-1, -1, self.nodes_count))
-
-    def get_reward(self):
-        if self.done:
-            return self.tour_length + self.pending_cost*self.pending_customers
+    #
+    # def get_reward(self):
+    #     if self.done:
+    #         return self.tour_length + self.pending_cost*self.pending_customers
 
     def step(self, customer_index, veh_index=None):
         dest = self.nodes.gather(1, customer_index[:, :, None].expand(-1, -1, self.customer_feature))
@@ -157,32 +157,16 @@ class DVRPSR_Environment:
 
         self.tour_length += dist
 
-        #reward = -dist
-        #reward = torch.zeros((self.minibatch, 1)).to(self.nodes.device)
-        #reward = torch.full((self.minibatch, 1), 1.0).to(self.nodes.device)
+        reward = -dist
 
-        # if self.done:
-        #     # penalty for all and static pending customers
-        #     pending_pending_customers = torch.logical_and((self.served ^ True),
-        #                                                  (self.nodes[:, :, 3] >= 0)).float().sum(-1, keepdim=True) - 1
-            #total_pend = self.pending_customers * self.pending_cost
-            #total_served = (self.served).float().sum(-1, keepdims=True) - 1
-
-            # Penalties for violating constraints (e.g., exceeding the time budget)
-            # violations = self.vehicles[:, :, 2] < 0
-            # violations_cost = violations.float().sum(-1, keepdim=True) * self.budget_penalty
-
-            # Tour length reduction (negative of total tour length)
-
-            # Calculate the total reward
-            # print('Total pending customers {}, static customers {}'.format(self.pending_customers, pending_static_customers))
-            # print('total penalties {}'.format(-(self.tour_length + total_pend)))
-            # reward = self.tour_length
-            # # print(self.pending_customers, reward)
-            # return reward
-        # else:
-        #     # If the episode is not done, return 0 reward
-        #     return reward
+        if self.done:
+            # penalty for all and static pending customers
+            pending_customers = torch.logical_and((self.served ^ True),
+                                                         (self.nodes[:, :, 3] >= 0)).float().sum(-1, keepdim=True) - 1
+            reward -= self.pending_cost * pending_customers
+            return reward
+        else:
+            return reward
 
 
     def state_dict(self, dest_dict=None):

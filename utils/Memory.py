@@ -5,6 +5,7 @@ class Memory:
         self.edge_attributes = []
         self.actions = []
         self.rewards = []
+        self.values = []
         self.log_probs = []
 
     def clear(self):
@@ -12,4 +13,5 @@ class Memory:
         self.edge_attributes.clear()
         self.actions.clear()
         self.rewards.clear()
+        self.values.clear()
         self.log_probs.clear()
