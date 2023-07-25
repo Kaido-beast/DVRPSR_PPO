@@ -79,7 +79,7 @@ class AgentPPO:
     def update(self, memory, epoch, data=None, env=None, env_params=None, device=None):
 
         returns = self.get_returns(memory.rewards)
-        returns = returns.to(device)
+        #returns = returns.to(device)
 
         old_nodes = torch.stack(memory.nodes)
         old_edge_attributes = torch.stack(memory.edge_attributes)
@@ -91,7 +91,7 @@ class AgentPPO:
 
         advantages = returns.detach() - old_state_values.detach()
         # advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-7)
-        advantages = advantages.squeeze(-1)
+        advantages = advantages.squeeze(-1).to(device)
         # create update data for PPO
         datas = []
         for i in range(old_nodes.size(0)):
@@ -139,6 +139,9 @@ class AgentPPO:
                 actor_loss = torch.min(actor_loss1, actor_loss2)
                 # total loss
                 loss = -actor_loss + 0.5 * mse_loss - self.entropy_value*entropy
+
+                # print(advantages.size(), R_norm.size(), values.size(), mse_loss.size(),
+                #       ratio.size(), actor_loss.size(), loss.size(), loss.mean().size())
 
                 # optimizer and backpropogation
                 self.optim.zero_grad()

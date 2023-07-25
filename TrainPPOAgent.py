@@ -83,8 +83,16 @@ class TrainPPOAgent:
                         actions = torch.tensor(actions)
                         actions = actions.permute(0, 2, 1)
 
+
+
                         actions = actions.to(torch.device('cpu')).detach()
                         logps = logps.to(torch.device('cpu')).detach()
+                        #nodes = nodes.to(torch.device('cpu')).detach()
+                        #edge_attributes = edge_attributes.to(torch.device('cpu')).detach()
+                        rewards = torch.stack(rewards).to(torch.device('cpu')).detach()
+                        values = torch.stack(values).to(torch.device('cpu')).detach()
+
+                        #print(minibatch[0].device, minibatch[1].device, actions.device, values.device)
 
                         memory.nodes.extend(minibatch[0])
                         memory.edge_attributes.extend(minibatch[1])
@@ -101,7 +109,7 @@ class TrainPPOAgent:
                             memory.clear()
 
                         prob = torch.stack([logps]).sum(dim=0).exp().mean()
-                        val = torch.stack(rewards).sum(dim=0).mean()
+                        val = rewards.sum(dim=0).mean()
 
                         loss_total = torch.tensor(loss_total).mean()
                         loss_a = torch.tensor(loss_a).mean()

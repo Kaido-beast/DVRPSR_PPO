@@ -29,7 +29,7 @@ def run(args):
     ## load DVRPSR problem
 
     verbose_print("Uploading data for training {}".format(args.iter_count * args.batch_size), end=" ", flush=True)
-    train_data = torch.load("./data/train/{}_{}_{}_{}/train_debug.pth".format(args.Lambda,
+    train_data = torch.load("./data/train/{}_{}_{}_{}/train.pth".format(args.Lambda,
                                                                         args.dod,
                                                                         args.vehicle_count,
                                                                         args.horizon))
@@ -37,7 +37,7 @@ def run(args):
 
     verbose_print("Uploading data for testing {}".format(args.test_batch_size), end=" ", flush=True)
     # test data is not normalized
-    test_data = torch.load("./data/test/{}_{}_{}_{}/test_debug.pth".format(args.Lambda,
+    test_data = torch.load("./data/test/{}_{}_{}_{}/test.pth".format(args.Lambda,
                                                                      args.dod,
                                                                      args.vehicle_count,
                                                                      args.horizon))
