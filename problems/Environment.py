@@ -157,13 +157,13 @@ class DVRPSR_Environment:
 
         self.tour_length += dist
 
-        reward = -dist
+        reward = +dist
 
         if self.done:
             # penalty for all and static pending customers
             pending_customers = torch.logical_and((self.served ^ True),
-                                                         (self.nodes[:, :, 3] >= 0)).float().sum(-1, keepdim=True) - 1
-            reward -= self.pending_cost * pending_customers
+                                                  (self.nodes[:, :, 3] >= 0)).float().sum(-1, keepdim=True) - 1
+            reward += self.pending_cost * pending_customers
             return reward
         else:
             return reward

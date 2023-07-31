@@ -11,10 +11,10 @@ class Critic(nn.Module):
     def __init__(self, customers_count, ff_size=128):
         super(Critic, self).__init__()
 
-        self.ff_layer1 = nn.Linear(customers_count, ff_size, bias = False)
+        self.ff_layer1 = nn.Linear(customers_count, ff_size, bias=False)
         self.ff_layer2 = nn.Linear(ff_size, customers_count, bias=False)
 
-    def forward(self, model_compact, current_vehicle_mask=None, customer_index = None):
+    def forward(self, model_compact, current_vehicle_mask=None, customer_index=None):
         compact = model_compact.clone()
         compact[current_vehicle_mask] = 0
         value = F.relu(self.ff_layer1(compact))

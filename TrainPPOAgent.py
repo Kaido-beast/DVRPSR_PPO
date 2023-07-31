@@ -87,12 +87,8 @@ class TrainPPOAgent:
 
                         actions = actions.to(torch.device('cpu')).detach()
                         logps = logps.to(torch.device('cpu')).detach()
-                        #nodes = nodes.to(torch.device('cpu')).detach()
-                        #edge_attributes = edge_attributes.to(torch.device('cpu')).detach()
                         rewards = torch.stack(rewards).to(torch.device('cpu')).detach()
-                        values = torch.stack(values).to(torch.device('cpu')).detach()
-
-                        #print(minibatch[0].device, minibatch[1].device, actions.device, values.device)
+                        values = torch.stack([values]).to(torch.device('cpu')).detach()
 
                         memory.nodes.extend(minibatch[0])
                         memory.edge_attributes.extend(minibatch[1])
@@ -102,10 +98,10 @@ class TrainPPOAgent:
                         memory.actions.extend(actions)
 
                         if (batch_index + 1) % self.update_timestep == 0:
-                            #print('updating part of PPO')
-                            loss_total, loss_a, loss_m, loss_e, norm_r, critic_r, ratios = self.agent.update(memory, epoch,
-                                                                                                              datas, env,
-                                                                                                              env_params, device)
+                            #print('updating part of PPO******************************')
+                            loss_total, loss_a, loss_m, loss_e, norm_r, critic_r, ratios, grads = self.agent.update(memory, epoch,
+                                                                                                                    datas, env,
+                                                                                                                    env_params, device)
                             memory.clear()
 
                         prob = torch.stack([logps]).sum(dim=0).exp().mean()
@@ -118,11 +114,13 @@ class TrainPPOAgent:
                         norm_r = torch.tensor(norm_r).mean()
                         critic_r = torch.tensor(critic_r).mean()
                         r = torch.tensor(ratios).mean()
+                        g = torch.tensor(grads).mean()
+
 
                         progress.set_postfix_str("p={:6.4g} val={:6.4g} l_t={:6.4g} l_a={:6.4g} "
-                                                 "l_m={:6.4g} l_e={:6.4g} r_n={:6.4g} c_n={:6.4g} r={:6.4g} ".format(
+                                                 "l_m={:6.4g} l_e={:6.4g} r_n={:6.4g} c_n={:6.4g} r={:6.4g} g={:6.4g} ".format(
                                                   prob.item(), val.item(), loss_total.item(), loss_a.item(),
-                                                  loss_m.item(), loss_e.item(), norm_r.item(), critic_r.item(), r.item()))
+                                                  loss_m.item(), loss_e.item(), norm_r.item(), critic_r.item(), r.item(), g.item()))
 
                         epoch_loss += loss_total.item()
                         epoch_prop += prob.item()

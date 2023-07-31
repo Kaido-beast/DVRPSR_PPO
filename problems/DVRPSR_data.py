@@ -1,14 +1,11 @@
 import torch
 from torch.utils.data import Dataset
-
-import pandas as pd
-import sys
 import os
 from time import time
-
-import problems.utils_data as utils
-import problems.utils_edges_street as get_edges_street
-import problems.utils_edges_euclidean as get_edges_euclidean
+from problems import *
+from problems.utils_edges_euclidean import *
+# import problems.utils_data as utils
+# import problems.utils_edges_euclidean as get_edges_euclidean
 from utils.config import *
 
 class DVRPSR_Dataset(Dataset):
@@ -40,10 +37,10 @@ class DVRPSR_Dataset(Dataset):
 
         # get edges index and attributes, which is distance between one node to others n_i*n_j
         # get the real street data or euclidean data between coordinates (which is faster to compute)
-        edges_index, edges_attributes = get_edges_euclidean.get_edges_attributes_parallel(batch_size, locations, V)
+        edges_index, edges_attributes = get_edges_attributes_parallel(batch_size, locations, V)
 
         ### generate Static_Dynamic customer requests
-        dynamic_request = utils.generateRandomDynamicRequests(batch_size,
+        dynamic_request = utils_data.generateRandomDynamicRequests(batch_size,
                                                             V,
                                                             V_static,
                                                             fDmean,
@@ -163,11 +160,11 @@ if __name__ == '__main__':
     folder_path = "../data/{}/{}_{}_{}_{}".format(train_test_val, Lambda, dod, vehicle_count, horizon)
     os.makedirs(folder_path, exist_ok=True)
     if train_test_val == 'train':
-        torch.save(data, os.path.join(folder_path, "train_debug.pth"))
+        torch.save(data, os.path.join(folder_path, "train.pth"))
     elif train_test_val == 'test':
-        torch.save(data, os.path.join(folder_path, "test_debug.pth"))
+        torch.save(data, os.path.join(folder_path, "test.pth"))
     else:
-        torch.save(data, os.path.join(folder_path, "val_ung.pth"))
+        torch.save(data, os.path.join(folder_path, "val.pth"))
 
     print(f'Time to run {batch_size} batches is {end_time-start_time}')
-    #print(data.nodes[0])
+
