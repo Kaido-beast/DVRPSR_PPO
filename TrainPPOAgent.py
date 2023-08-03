@@ -50,6 +50,8 @@ class TrainPPOAgent:
         else:
             start_epoch = load_checkpoint(args, self.agent.old_policy)
 
+        memory = Memory()
+        self.agent.old_policy.to(device)
         print("Running PPO models ")
         train_stats = []
         test_stats = []
@@ -58,16 +60,15 @@ class TrainPPOAgent:
             for epoch in range(start_epoch, args.epoch_count):
 
                 train_data_loader = DataLoader(datas, batch_size=self.batch_size, shuffle=True)
-                memory = Memory()
-                self.agent.old_policy.to(device)
+                self.agent.old_policy.train()
 
                 epoch_loss = 0
                 epoch_prop = 0
                 epoch_val = 0
                 epoch_c_val = 0
 
-                with tqdm(train_data_loader, desc="Epoch #{: >3d}/{: <3d}".format(epoch + 1, args.epoch_count)) as progress:
-                    self.agent.old_policy.train()
+                with tqdm(train_data_loader, colour='green', desc="Epoch #{: >3d}/{: <3d}".format(epoch + 1, args.epoch_count)) as progress:
+
 
                     prop, val, loss_total, loss_a, loss_m, loss_e, norm_r, critic_r = [], [], [], [], [], [], [], []
 
@@ -129,7 +130,7 @@ class TrainPPOAgent:
 
                 train_stats.append(stats / args.iter_count for stats in (epoch_loss, epoch_prop, epoch_val, epoch_c_val))
                 if ref_cost is not None:
-                    test_stats.append(self.test_epoch(args, env_test, ref_cost))
+                    test_stats.append(self.test_epoch(self.agent.policy, env_test, ref_cost))
 
                 if args.grad_norm_decay is not None:
                     args.max_grad_norm *= args.grad_norm_decay
@@ -141,14 +142,13 @@ class TrainPPOAgent:
         finally:
             export_train_test_stats(args, start_epoch, train_stats, test_stats)
 
-    def test_epoch(self, args, env, ref_costs):
-        model = self.agent.policy
+    def test_epoch(self, model, env, ref_costs):
         model.eval()
         costs = env.nodes.new_zeros(env.minibatch)
-
-        for _ in range(10):
-            _, _, rewards, values = model.act(env)
-            costs += torch.stack(rewards).sum(dim=0).squeeze(-1)
+        with torch.no_grad():
+            for _ in range(10):
+                _, _, rewards, values = model.act(env)
+                costs += torch.stack(rewards).sum(dim=0).squeeze(-1)
 
         costs = costs / 10
         mean = costs.mean()

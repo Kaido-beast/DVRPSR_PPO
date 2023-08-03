@@ -88,7 +88,7 @@ def run(args):
 
     ## Checkpoints
     verbose_print("Creating Output directry...", end=" ", flush=True)
-    args.output_dir = "./output/gtm_{}_{}_{}_{}".format( args.Lambda,
+    args.output_dir = "./output/test_vcc_1_4_{}_{}_{}_{}".format( args.Lambda,
                                                         args.dod,
                                                         args.vehicle_count,
                                                         time.strftime("%y%m%d")) if args.output_dir is None else args.output_dir

@@ -75,7 +75,6 @@ class GraphMultiHeadAttention(nn.Module):
 
         # calculate the compability
         attention = Q_project.matmul(K_project)
-        attention *= self.scaling_factor
 
         # if edge attributes are required
         if edge_attributes is not None:
@@ -91,6 +90,7 @@ class GraphMultiHeadAttention(nn.Module):
                 m = mask.view(-1, 1, 1, size_KV).expand_as(attention)
             attention[m.bool()] = -float('inf')
 
+        attention *= self.scaling_factor
         attention = F.softmax(attention, dim=-1)
         attention = attention.matmul(V_project).permute(0, 2, 1, 3).contiguous().view(
             *batch_size, size_Q, self.num_head * self.values_per_head)

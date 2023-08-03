@@ -1,20 +1,20 @@
 import torch
+import math
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.distributions.categorical import Categorical
 from nets.GraphMultiHeadAttention import GraphMultiHeadAttention
+from nets.GraphMultiHeadAttentionv2 import GraphMultiHeadAttentionV2
 from nets.Encoder import GraphEncoder
-from nets.Critic import Critic
+
 
 class GraphAttentionModel(nn.Module):
-
     def __init__(self, num_customers, customer_feature, vehicle_feature, model_size=128, encoder_layer=3,
                  num_head=8, ff_size=128, tanh_xplor=10, edge_embedding_dim=128):
         super(GraphAttentionModel, self).__init__()
 
         # get models parameters for encoding-decoding
         self.model_size = model_size
-        self.scaling_factor = self.model_size ** 0.5
+        self.scaling_factor = 1 / math.sqrt(self.model_size)
         self.tanh_xplor = tanh_xplor
 
         # Initialize encoder and embeddings
@@ -26,11 +26,9 @@ class GraphAttentionModel(nn.Module):
 
         self.customer_embedding = nn.Linear(customer_feature, model_size)
         self.depot_embedding = nn.Linear(customer_feature, model_size)
-        self.bn_nodes = nn.BatchNorm1d(model_size)
-        self.bn_edges = nn.BatchNorm1d(edge_embedding_dim)
         self.edge_embedding = nn.Linear(1, edge_embedding_dim)
-        self.fleet_attention = GraphMultiHeadAttention(num_head, vehicle_feature, model_size)
-        self.vehicle_attention = GraphMultiHeadAttention(num_head, model_size)
+        self.fleet_attention = GraphMultiHeadAttentionV2(num_head, vehicle_feature, model_size)
+        self.vehicle_attention = GraphMultiHeadAttentionV2(num_head, model_size)
         self.customer_projection = nn.Linear(self.model_size, self.model_size)  # TODO: MLP instaed of nn.Linear
 
     def encoder(self, env, customer_mask=None):
@@ -40,11 +38,7 @@ class GraphAttentionModel(nn.Module):
             customer_embed[customer_mask] = 0
 
         edge_embed = self.edge_embedding(env.edge_attributes)
-        #customer_embed = self.bn_nodes(customer_embed.permute(0, 2, 1)).permute(0, 2, 1)
-        #edge_embed = self.bn_edges(edge_embed.permute(0, 2, 1)).permute(0, 2, 1)
-
         self.customer_encoding = self.customer_encoder(customer_embed, edge_embed, mask=customer_mask)
-        self.fleet_attention.precompute(self.customer_encoding)
         self.customer_representation = self.customer_projection(self.customer_encoding)
         if customer_mask is not None:
             self.customer_representation[customer_mask] = 0
@@ -52,14 +46,16 @@ class GraphAttentionModel(nn.Module):
     def decoder(self, env):
 
         fleet_representation = self.fleet_attention(env.vehicles,
+                                                    self.customer_encoding,
+                                                    self.customer_encoding,
                                                     mask=env.current_vehicle_mask)
         vehicle_query = fleet_representation.gather(1,
-                                                    env.current_vehicle_index.unsqueeze(2).expand(-1, -1,
-                                                                                                  self.model_size))
+                                                    env.current_vehicle_index.unsqueeze(2).expand(
+                                                     -1, -1, self.model_size))
 
         vehicle_representation = self.vehicle_attention(vehicle_query,
-                                                        fleet_representation,
-                                                        fleet_representation)
+                                                        self.customer_representation,
+                                                        self.customer_representation)
 
         compact = torch.bmm(vehicle_representation,
                             self.customer_representation.transpose(2, 1))

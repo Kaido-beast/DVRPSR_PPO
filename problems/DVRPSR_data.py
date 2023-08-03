@@ -126,6 +126,7 @@ class DVRPSR_Dataset(Dataset):
     def load(cls, folder_path):
         return cls(**torch.load(folder_path))
 
+
 if __name__ == '__main__':
     args = ParseArguments()
     start_time = time()
@@ -137,7 +138,7 @@ if __name__ == '__main__':
     elif train_test_val == 'test':
         batch_size = args.test_batch_size
     else:
-        batch_size = 20
+        batch_size = 10
 
     print(batch_size)
     vehicle_count = args.vehicle_count
@@ -167,4 +168,5 @@ if __name__ == '__main__':
         torch.save(data, os.path.join(folder_path, "val.pth"))
 
     print(f'Time to run {batch_size} batches is {end_time-start_time}')
+    print(data.nodes[0])
 

@@ -9,6 +9,11 @@ import time
 
 from agents.Actor_Critic import Actor_Critic
 from problems import DVRPSR_Environment
+import numpy as np
+# Set the random seed for PyTorch, NumPy, and Python's random module
+seed = 42
+torch.manual_seed(seed)
+np.random.seed(seed)
 
 class AgentPPO:
     def __init__(self,
@@ -45,7 +50,7 @@ class AgentPPO:
         self.epsilon_clip = epsilon_clip
         # initialize the Adam optimizer
         self.optim = torch.optim.Adam([
-                        {'params': self.policy.actor.parameters(), 'lr': 1e-4},
+                        {'params': self.policy.actor.parameters(), 'lr': learning_rate},
                         {'params': self.policy.critic.parameters(), 'lr': 1e-3}])
         self.MSE_loss = nn.MSELoss(reduction='mean')
         # actor-critic parameters
@@ -72,7 +77,7 @@ class AgentPPO:
         returns = []
         discounted_returns = torch.zeros_like(R[0])
         for reward in reversed(R):
-            discounted_returns = reward + (1.0 * discounted_returns)
+            discounted_returns = reward + (0.99 * discounted_returns)
             returns.insert(0, discounted_returns)
 
         returns = torch.stack(returns).permute(1, 0, 2)
@@ -96,10 +101,13 @@ class AgentPPO:
         advantages = (old_rewards.detach() - old_values.detach()).squeeze(-1)
 
         lr_scheduler = LambdaLR(self.optim, lr_lambda=lambda f: 0.96**epoch)
+
+        #self.entropy_value *= 0.99**epoch
         env = env if env is not None else DVRPSR_Environment
         loss_t, norm_R, critic_R, loss_a, loss_mse, loss_e, ratios, grads = [], [], [], [], [], [], [], []
 
         for i in range(self.ppo_epoch):
+            self.policy.train()
             dyna_env = env(None, old_nodes, old_edge_attributes, *env_params)
             entropy, log_probs, values = self.policy.evaluate(dyna_env, old_actions.permute(1, 0, 2))
             values = torch.stack([values]).permute(1, 0).squeeze(-1)
@@ -139,6 +147,8 @@ class AgentPPO:
 
             grad_norm = clip_grad_norm_(chain.from_iterable(grp["params"] for grp in self.optim.param_groups),
                                         self.max_grad_norm)
+
+            #grad_norm = 0
 
             self.optim.step()
             lr_scheduler.step()
