@@ -56,13 +56,13 @@ def ParseArguments(argv=None):
     parser.add_argument_group(" Graph Attention models ")
     parser.add_argument("--model-size", type=int, default=128,
                         help=" Size of for attention models")
-    parser.add_argument("--encoder-layer", type=int, default=2,
+    parser.add_argument("--encoder-layer", type=int, default=4,
                         help='Number of Encoder Layers')
     parser.add_argument("--num-head", type=int, default=8,
                         help='Number of heads in MultiHeadAttention modules')
-    parser.add_argument("--ff-size-actor", type=int, default=128,
+    parser.add_argument("--ff-size-actor", type=int, default=256,
                         help=" Size of fully connected Feed Forward Networks")
-    parser.add_argument("--ff-size-critic", type=int, default=128,
+    parser.add_argument("--ff-size-critic", type=int, default=512,
                         help=" Size of fully connected Feed Forward Networks")
     parser.add_argument("--tanh-xplor", type=int, default=10)
     parser.add_argument("--edge_embedding_dim", type=int, default=64,
@@ -84,7 +84,7 @@ def ParseArguments(argv=None):
     parser.add_argument("--iter-count", "-i", type=int, default=100)
     parser.add_argument("--batch-size", "-b", type=int, default=256)
     parser.add_argument("--rate-decay", '-d', type=float, default=0.96)
-    parser.add_argument("--max-grad-norm", type=float, default=2)
+    parser.add_argument("--max-grad-norm", type=float, default=5)
     parser.add_argument("--grad-norm-decay", type=float, default=None)
 
     ### Testing Related arguments

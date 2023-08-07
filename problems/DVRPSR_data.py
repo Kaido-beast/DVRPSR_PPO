@@ -138,7 +138,7 @@ if __name__ == '__main__':
     elif train_test_val == 'test':
         batch_size = args.test_batch_size
     else:
-        batch_size = 1000
+        batch_size = 10
 
     print(batch_size)
     vehicle_count = args.vehicle_count
@@ -165,7 +165,7 @@ if __name__ == '__main__':
     elif train_test_val == 'test':
         torch.save(data, os.path.join(folder_path, "test_d.pth"))
     else:
-        torch.save(data, os.path.join(folder_path, "val_accuracy.pth"))
+        torch.save(data, os.path.join(folder_path, "val.pth"))
 
     print(f'Time to run {batch_size} batches is {end_time-start_time}')
     print(data.nodes[0])

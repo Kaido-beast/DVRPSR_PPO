@@ -1,14 +1,14 @@
 import torch.nn as nn
 import torch.nn.functional as F
 # from nets import GraphMultiHeadAttention
-from nets import GraphMultiHeadAttentionV2
+from nets import GraphMultiHeadAttention
 
 
 class GraphEncoderlayer(nn.Module):
     def __init__(self, num_head, model_size, ff_size, edge_dim_size):
         super(GraphEncoderlayer, self).__init__()
 
-        self.attention = GraphMultiHeadAttentionV2(num_head, query_size=model_size, edge_size=edge_dim_size)
+        self.attention = GraphMultiHeadAttention(num_head, query_size=model_size, edge_size=edge_dim_size)
         self.BN1 = nn.BatchNorm1d(model_size)
 
         self.FFN_layer1 = nn.Linear(model_size, ff_size)
