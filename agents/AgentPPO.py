@@ -1,15 +1,13 @@
 import torch
 import torch.nn as nn
-from torch_geometric.loader import DataLoader
-from torch_geometric.data import Data
 from torch.optim.lr_scheduler import LambdaLR
 from torch.nn.utils import clip_grad_norm_
 from itertools import chain
-import time
 
 from agents.Actor_Critic import Actor_Critic
 from problems import DVRPSR_Environment
 import numpy as np
+
 # Set the random seed for PyTorch, NumPy, and Python's random module
 seed = 42
 torch.manual_seed(seed)
@@ -48,23 +46,13 @@ class AgentPPO:
         self.batch_size = batch_size
         self.entropy_value = entropy_value
         self.epsilon_clip = epsilon_clip
+
         # initialize the Adam optimizer
         self.optim = torch.optim.Adam([
                         {'params': self.policy.actor.parameters(), 'lr': learning_rate},
                         {'params': self.policy.critic.parameters(), 'lr': 1e-3}])
-        self.MSE_loss = nn.MSELoss(reduction='mean')
+        self.MSE_loss = nn.MSELoss()
         # actor-critic parameters
-        self.customer_feature = customer_feature
-        self.vehicle_feature = vehicle_feature
-        self.customers_count = customers_count
-        self.model_size = model_size
-        self.encoder_layer = encoder_layer
-        self.num_head = num_head
-        self.ff_size_actor = ff_size_actor
-        self.ff_size_critic = ff_size_critic
-        self.tanh_xplor = tanh_xplor
-        self.edge_embedding_dim = edge_embedding_dim
-        self.greedy = greedy
         self.max_grad_norm = max_grad_norm
 
     def advantage_normalization(self, advantage):
@@ -88,67 +76,57 @@ class AgentPPO:
     def update(self, memory, epoch, data=None, env=None, env_params=None, device=None):
         self.policy.to(device)
         returns = self.get_returns(memory.rewards)
-        returns = self.advantage_normalization(returns)
+        old_rewards = returns.sum(dim=1).squeeze(-1).to(device)
+        #old_rewards = self.advantage_normalization(old_rewards)
+
+        #old_rewards = torch.stack(memory.rewards).permute(1,0,2).squeeze(-1).sum(-1, keepdims=True).to(device)
+        #print('old rewards {} {}'.format(old_rewards.size(), old_rewards))
 
         old_nodes = torch.stack(memory.nodes).to(device)
         old_edge_attributes = torch.stack(memory.edge_attributes).to(device)
-        old_rewards = returns.sum(dim=1).to(device)
         old_values = torch.stack(memory.values).permute(1, 0).to(device)
         old_log_probs = torch.stack(memory.log_probs).to(device)
         old_actions = torch.stack(memory.actions).to(device)
         steps = old_actions.size(1)
 
-        advantages = (old_rewards.detach() - old_values.detach()).squeeze(-1)
+        #advantages = (old_rewards.detach() - old_values.detach()).squeeze(-1)
 
         lr_scheduler = LambdaLR(self.optim, lr_lambda=lambda f: 0.96**epoch)
-
-        #self.entropy_value *= 0.99**epoch
         env = env if env is not None else DVRPSR_Environment
         loss_t, norm_R, critic_R, loss_a, loss_mse, loss_e, ratios, grads = [], [], [], [], [], [], [], []
 
         for i in range(self.ppo_epoch):
+
             self.policy.train()
+
             dyna_env = env(None, old_nodes, old_edge_attributes, *env_params)
+
             entropy, log_probs, values = self.policy.evaluate(dyna_env, old_actions.permute(1, 0, 2))
             values = torch.stack([values]).permute(1, 0).squeeze(-1)
 
-            R_norm = old_rewards
+            R_norm = old_rewards.squeeze(-1)
             R_norm = self.advantage_normalization(R_norm)
-            R_norm = R_norm.squeeze(-1)
 
-            mse_loss = self.MSE_loss(values, R_norm)
-            ratio = torch.exp(log_probs - old_log_probs.detach()).squeeze(-1)
+            mse_loss = self.MSE_loss(R_norm, values)
+
+            ratio = torch.exp(log_probs - old_log_probs).squeeze(-1)
+            advantages = (R_norm - values.detach()).squeeze(-1)
 
             # PPO overall loss function
             actor_loss1 = ratio * advantages
             actor_loss2 = torch.clamp(ratio, 1 - self.epsilon_clip, 1 + self.epsilon_clip) * advantages
             actor_loss = torch.min(actor_loss1, actor_loss2)
 
-            # print('advantages calculation {}, {}, {}, {}, {}, {}'.format(
-            #     ratio,
-            #     torch.clamp(ratio, 1 - self.epsilon_clip, 1 + self.epsilon_clip),
-            #     advantages,
-            #     actor_loss1,
-            #     actor_loss2,
-            #     actor_loss
-            # ))
-
             # total loss
-            loss = actor_loss + 0.5 * mse_loss - self.entropy_value*entropy.squeeze(-1)
-            # print('mian loss components {}, {}, {}, {}'.format(loss, actor_loss, mse_loss, entropy))
+            loss = actor_loss + 0.5 * mse_loss - self.entropy_value * entropy.squeeze(-1)
             # print(advantages.size(), R_norm.size(), values.size(), mse_loss.size(),
             #       ratio.size(), actor_loss.size(), loss.size(), loss.mean().size())
 
             # optimizer and backpropogation
             self.optim.zero_grad()
             loss.mean().backward()
-
-            #print(self.optim.param_groups)
-
             grad_norm = clip_grad_norm_(chain.from_iterable(grp["params"] for grp in self.optim.param_groups),
                                         self.max_grad_norm)
-
-            #grad_norm = 0
 
             self.optim.step()
             lr_scheduler.step()
@@ -160,7 +138,6 @@ class AgentPPO:
             loss_e.append(torch.mean(entropy.detach()).item())
             critic_R.append(torch.mean(values.detach()).item())
             ratios.append(torch.mean(ratio.detach()).item())
-            #print(ratio)
             grads.append(torch.mean(grad_norm.detach()).item())
 
         self.old_policy.load_state_dict(self.policy.state_dict())

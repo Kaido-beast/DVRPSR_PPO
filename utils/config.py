@@ -56,7 +56,7 @@ def ParseArguments(argv=None):
     parser.add_argument_group(" Graph Attention models ")
     parser.add_argument("--model-size", type=int, default=128,
                         help=" Size of for attention models")
-    parser.add_argument("--encoder-layer", type=int, default=4,
+    parser.add_argument("--encoder-layer", type=int, default=2,
                         help='Number of Encoder Layers')
     parser.add_argument("--num-head", type=int, default=8,
                         help='Number of heads in MultiHeadAttention modules')
@@ -76,7 +76,7 @@ def ParseArguments(argv=None):
                         help='Learning rate for PPO agent')
     parser.add_argument("--ppo-epoch", type=int, default=4,
                         help='Epoch for PPO to run the sample and evaluate')
-    parser.add_argument("--entropy-value", type=int, default=0.1)
+    parser.add_argument("--entropy-value", type=int, default=0.001)
     parser.add_argument("--epsilon-clip", type=int, default=0.2)
     parser.add_argument("--timestep", type=int, default=1)
 
@@ -84,7 +84,7 @@ def ParseArguments(argv=None):
     parser.add_argument("--iter-count", "-i", type=int, default=100)
     parser.add_argument("--batch-size", "-b", type=int, default=256)
     parser.add_argument("--rate-decay", '-d', type=float, default=0.96)
-    parser.add_argument("--max-grad-norm", type=float, default=5)
+    parser.add_argument("--max-grad-norm", type=float, default=2)
     parser.add_argument("--grad-norm-decay", type=float, default=None)
 
     ### Testing Related arguments

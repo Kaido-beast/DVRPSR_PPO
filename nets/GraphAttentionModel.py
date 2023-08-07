@@ -54,8 +54,8 @@ class GraphAttentionModel(nn.Module):
                                                      -1, -1, self.model_size))
 
         vehicle_representation = self.vehicle_attention(vehicle_query,
-                                                        self.customer_representation,
-                                                        self.customer_representation)
+                                                        fleet_representation,
+                                                        fleet_representation)
 
         compact = torch.bmm(vehicle_representation,
                             self.customer_representation.transpose(2, 1))
@@ -69,10 +69,10 @@ class GraphAttentionModel(nn.Module):
 
         ###########################################################################################
         # waiting heuristic in case there is no customer, vehicle should wait at current location
-        # if (env.current_vehicle[:, :, 5] != env.current_vehicle[:, :, 4]).all():
-        #     compact.scatter_(2,
-        #                      env.current_vehicle[:, :, 5].squeeze().long().unsqueeze(-1).unsqueeze(-1),
-        #                      -self.tanh_xplor)
+        if (env.current_vehicle[:, :, 5] != env.current_vehicle[:, :, 4]).all():
+            compact.scatter_(2,
+                             env.current_vehicle[:, :, 5].squeeze().long().unsqueeze(-1).unsqueeze(-1),
+                             -self.tanh_xplor)
         # compact[:, :, 0] = -(self.tanh_xplor)
         # ##########################################################################################
         #print('compability after heuristic {}'.format(compact))
