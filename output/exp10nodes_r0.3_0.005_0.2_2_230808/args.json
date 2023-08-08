@@ -13,7 +13,7 @@
     "fDmean": 10,
     "fDstd": 2.5,
     "euclidean": true,
-    "pending_cost": 0.3,
+    "pending_cost": 0.25,
     "dynamic_reward": 0.5,
     "model_size": 128,
     "encoder_layer": 3,
