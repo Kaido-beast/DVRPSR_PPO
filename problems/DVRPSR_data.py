@@ -131,7 +131,7 @@ if __name__ == '__main__':
     args = ParseArguments()
     start_time = time()
 
-    train_test_val = 'test'
+    train_test_val = 'train'
 
     if train_test_val == 'train':
         batch_size = args.batch_size * args.iter_count
@@ -161,7 +161,7 @@ if __name__ == '__main__':
     folder_path = "../data/{}/{}_{}_{}_{}".format(train_test_val, Lambda, dod, vehicle_count, horizon)
     os.makedirs(folder_path, exist_ok=True)
     if train_test_val == 'train':
-        torch.save(data, os.path.join(folder_path, "train_d.pth"))
+        torch.save(data, os.path.join(folder_path, "train.pth"))
     elif train_test_val == 'test':
         torch.save(data, os.path.join(folder_path, "test_d.pth"))
     else:

@@ -79,10 +79,9 @@ class Actor_Critic(nn.Module):
 
         entropys = torch.cat(entropys, dim=1)
         # print(entropys)
-        # num_e = entropys.ne(0).float().sum(1)
-        # print(num_e)
-        # entropys = entropys.sum(1) / num_e
-        entropys = entropys.sum(dim=1)
+        num_e = entropys.ne(0).float().sum(1)
+        entropys = entropys.sum(1) / num_e
+        # entropys = entropys.sum(dim=1)
         values = torch.cat(values, dim=1).sum(dim=1)
 
         old_actions_logps = torch.cat(old_actions_logps, dim=1).sum(dim=1)

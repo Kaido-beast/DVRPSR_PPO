@@ -77,7 +77,7 @@ class AgentPPO:
         returns = []
         discounted_returns = torch.zeros_like(R[0])
         for reward in reversed(R):
-            discounted_returns = reward + (0.99 * discounted_returns)
+            discounted_returns = reward + (1.0 * discounted_returns)
             returns.insert(0, discounted_returns)
 
         returns = torch.stack(returns).permute(1, 0, 2)
@@ -121,13 +121,15 @@ class AgentPPO:
             # PPO overall loss function
             actor_loss1 = ratio * advantages
             actor_loss2 = torch.clamp(ratio, 1 - self.epsilon_clip, 1 + self.epsilon_clip) * advantages
-            actor_loss = torch.min(actor_loss1, actor_loss2)
+            actor_loss = torch.min(actor_loss1, actor_loss2).mean()
 
             # total loss
-            loss = actor_loss + 0.5 * mse_loss - self.entropy_value*entropy
+            loss = actor_loss + 0.5 * mse_loss - self.entropy_value*entropy.mean()
 
             # print(advantages.size(), R_norm.size(), values.size(), mse_loss.size(),
             #       ratio.size(), actor_loss.size(), loss.size(), loss.mean().size())
+            #
+            # print(loss, loss.mean())
 
             # optimizer and backpropogation
             self.optim.zero_grad()
@@ -147,7 +149,7 @@ class AgentPPO:
             loss_t.append(torch.mean(loss.detach()).item())
             loss_a.append(torch.mean(actor_loss.detach()).item())
             loss_mse.append(torch.mean(mse_loss.detach()).item())
-            loss_e.append(torch.mean(entropy.detach()).item())
+            loss_e.append(torch.mean(self.entropy_value * entropy.detach()).item())
             critic_R.append(torch.mean(values.detach()).item())
             ratios.append(torch.mean(ratio.detach()).item())
             #print(ratio)

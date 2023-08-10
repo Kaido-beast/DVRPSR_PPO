@@ -157,7 +157,7 @@ class DVRPSR_Environment:
 
         self.tour_length += dist
 
-        reward = +dist
+        reward = +dist * 0.1
 
         if self.done:
             served_customers = torch.sum(self.served.float(), dim=1)
@@ -165,7 +165,7 @@ class DVRPSR_Environment:
 
             # Define hyperparameters for reward shaping
             alpha = 0.75  # Weight for distance minimization
-            beta = 50.0  # Weight for customer satisfaction (served/pending ratio)
+            beta = 100.0  # Weight for customer satisfaction (served/pending ratio)
 
             # Calculate tour length reward
             tour_length_reward = self.tour_length
