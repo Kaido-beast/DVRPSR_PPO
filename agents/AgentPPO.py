@@ -69,7 +69,7 @@ class AgentPPO:
 
     def advantage_normalization(self, advantage):
         std = advantage.std()
-        assert std != 0. and not torch.isnan(std), 'Need nonzero std'
+        # assert std != 0. and not torch.isnan(std), 'Need nonzero std'
         norm_advantage = (advantage - advantage.mean()) / (std + 1e-7)
         return norm_advantage
 

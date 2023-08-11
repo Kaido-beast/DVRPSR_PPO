@@ -119,8 +119,8 @@ def generateRandomDynamicRequests(batch_size=2,
 
         while True:
             unif = unifDist()
-            u += -(1 / (1.5*Lambda)) * math.log(unif)
-            if u > (0.8*horizon) or len(dynamic_request) > (V - V_static + 2):
+            u += -(1 / (Lambda)) * math.log(unif)
+            if (u > (0.75 * horizon)) or (len(dynamic_request) > (V - V_static + 2)):
                 break
             d = round(durDist(), 2)
             while d <= 0:
