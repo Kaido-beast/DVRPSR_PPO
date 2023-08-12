@@ -36,6 +36,6 @@ class GraphEncoder(nn.Module):
     def forward(self, h, e=None, mask=None):
         h_out = h
         for child in self.children():
-            h_out = child(h_out, e, mask=mask)
-            #h_out = h_out + h_in
+            h_in = child(h_out, e, mask=mask)
+            h_out = h_out + h_in
         return h_out

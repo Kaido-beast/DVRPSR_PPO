@@ -1,4 +1,5 @@
 from torch.utils.data import DataLoader
+
 from agents import AgentPPO
 from utils import Memory
 from utils.ortool import *
@@ -77,6 +78,7 @@ class TrainPPOAgent:
                         actions = formate_old_actions(actions)
                         actions = torch.tensor(actions)
                         actions = actions.permute(0, 2, 1)
+
                         actions = actions.to(torch.device('cpu')).detach()
                         logps = logps.to(torch.device('cpu')).detach()
                         rewards = torch.stack(rewards).to(torch.device('cpu')).detach()
@@ -107,7 +109,6 @@ class TrainPPOAgent:
                         critic_r = torch.tensor(critic_r).mean()
                         r = torch.tensor(ratios).mean()
                         g = torch.tensor(grads).mean()
-
 
                         progress.set_postfix_str("p={:6.4g} val={:6.4g} l_t={:6.4g} l_a={:6.4g} "
                                                  "l_m={:6.4g} l_e={:6.4g} r_n={:6.4g} c_n={:6.4g} r={:6.4g} g={:6.4g} ".format(

@@ -164,7 +164,6 @@ class DVRPSR_Environment:
         else:
             return reward
 
-
     def state_dict(self, dest_dict=None):
         if dest_dict is None:
             dest_dict = {'vehicles': self.vehicles,
