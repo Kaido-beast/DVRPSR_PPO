@@ -1,5 +1,4 @@
 from torch.utils.data import DataLoader
-
 from agents import AgentPPO
 from utils import Memory
 from utils.ortool import *
@@ -66,8 +65,6 @@ class TrainPPOAgent:
                 epoch_c_val = 0
 
                 with tqdm(train_data_loader, colour='green', desc="Epoch #{: >3d}/{: <3d}".format(epoch + 1, args.epoch_count)) as progress:
-
-
                     prop, val, loss_total, loss_a, loss_m, loss_e, norm_r, critic_r = [], [], [], [], [], [], [], []
 
                     for batch_index, minibatch in enumerate(progress):
@@ -75,11 +72,11 @@ class TrainPPOAgent:
                         nodes = nodes.view(self.batch_size, self.customers_count, 4)
                         edge_attributes = edge_attributes.view(self.batch_size, self.customers_count * self.customers_count, 1)
                         dyna_env = env(None, nodes, edge_attributes, *env_params)
+                        #print('training part of PPO')
                         actions, logps, rewards, values = self.agent.old_policy.act(dyna_env)
                         actions = formate_old_actions(actions)
                         actions = torch.tensor(actions)
                         actions = actions.permute(0, 2, 1)
-
                         actions = actions.to(torch.device('cpu')).detach()
                         logps = logps.to(torch.device('cpu')).detach()
                         rewards = torch.stack(rewards).to(torch.device('cpu')).detach()
@@ -93,6 +90,7 @@ class TrainPPOAgent:
                         memory.actions.extend(actions)
 
                         if (batch_index + 1) % self.update_timestep == 0:
+                            #print('updating part of PPO******************************')
                             loss_total, loss_a, loss_m, loss_e, norm_r, critic_r, ratios, grads = self.agent.update(memory, epoch,
                                                                                                                     datas, env,
                                                                                                                     env_params, device)

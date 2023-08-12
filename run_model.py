@@ -1,3 +1,7 @@
+import torch
+import time
+import os
+
 from problems import *
 from TrainPPOAgent import *
 from utils.config import *
@@ -6,12 +10,8 @@ from utils.Misc import *
 
 import warnings
 warnings.filterwarnings('error', category=UnicodeWarning)
-
-import torch
-
-import time
-import os
 ortool_available = True
+
 
 def run(args):
     device = torch.device("mps" if torch.backends.mps.is_available() and args.gpu else "cpu")
@@ -88,11 +88,10 @@ def run(args):
 
     ## Checkpoints
     verbose_print("Creating Output directry...", end=" ", flush=True)
-    args.output_dir = "./output/exp10nodes_entropy{}_{}_{}_{}_{}".format(args.entropy_value,
-                                                                         args.Lambda,
-                                                                         args.dod,
-                                                                         args.vehicle_count,
-                                                                         time.strftime("%y%m%d")) if args.output_dir is None else args.output_dir
+    args.output_dir = "./output/test_vcc_1_4_{}_{}_{}_{}".format( args.Lambda,
+                                                        args.dod,
+                                                        args.vehicle_count,
+                                                        time.strftime("%y%m%d")) if args.output_dir is None else args.output_dir
 
     os.makedirs(args.output_dir, exist_ok=True)
     write_config_file(args, os.path.join(args.output_dir, "args.json"))

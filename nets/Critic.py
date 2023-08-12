@@ -1,4 +1,3 @@
-
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -7,7 +6,6 @@ class Critic(nn.Module):
 
     # critic will take environment as imput and ouput the values for loss function
     # which is basically the estimation of complexity of actions
-
     def __init__(self, customers_count, ff_size=128):
         super(Critic, self).__init__()
 

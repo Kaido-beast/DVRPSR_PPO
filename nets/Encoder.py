@@ -37,4 +37,5 @@ class GraphEncoder(nn.Module):
         h_out = h
         for child in self.children():
             h_out = child(h_out, e, mask=mask)
+            #h_out = h_out + h_in
         return h_out

@@ -41,11 +41,12 @@ class Actor_Critic(nn.Module):
             logp = dist.log_prob(customer_index)
             val = self.critic(prop, env.current_vehicle_mask, customer_index)
             actions.append((env.current_vehicle_index, customer_index))
-            logps.append(logp)
+            logps.append(logp.unsqueeze(1))
             rewards.append(env.step(customer_index))
             values.append(val)
 
-        logps = torch.cat(logps, dim=1).sum(dim=1)
+        logps = torch.cat(logps, dim=1)
+        logps = logps.sum(dim=1)
         values = torch.cat(values, dim=1).sum(dim=1)
         return actions, logps, rewards, values
 
@@ -73,14 +74,17 @@ class Actor_Critic(nn.Module):
             customer_index = old_action[:, 1].unsqueeze(-1)
             env.step(customer_index, next_vehicle_index)
 
-            old_actions_logps.append(old_actions_logp)
-            entropys.append(entropy)
+            old_actions_logps.append(old_actions_logp.unsqueeze(1))
+            entropys.append(entropy.unsqueeze(1))
             values.append(val)
 
         entropys = torch.cat(entropys, dim=1)
         num_e = entropys.ne(0).float().sum(1)
         entropys = entropys.sum(1) / num_e
+
         values = torch.cat(values, dim=1).sum(dim=1)
 
-        old_actions_logps = torch.cat(old_actions_logps, dim=1).sum(dim=1)
+        old_actions_logps = torch.cat(old_actions_logps, dim=1)
+        old_actions_logps = old_actions_logps.sum(1)
+
         return entropys, old_actions_logps, values

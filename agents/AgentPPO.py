@@ -13,6 +13,7 @@ seed = 42
 torch.manual_seed(seed)
 np.random.seed(seed)
 
+
 class AgentPPO:
     def __init__(self,
                  customer_feature,
@@ -67,7 +68,7 @@ class AgentPPO:
 
     def advantage_normalization(self, advantage):
         std = advantage.std()
-        # assert std != 0. and not torch.isnan(std), 'Need nonzero std'
+        assert std != 0. and not torch.isnan(std), 'Need nonzero std'
         norm_advantage = (advantage - advantage.mean()) / (std + 1e-7)
         return norm_advantage
 
@@ -75,26 +76,29 @@ class AgentPPO:
         returns = []
         discounted_returns = torch.zeros_like(R[0])
         for reward in reversed(R):
-            discounted_returns = reward + (1.0 * discounted_returns)
+            discounted_returns = reward + (0.99 * discounted_returns)
             returns.insert(0, discounted_returns)
 
         returns = torch.stack(returns).permute(1, 0, 2)
         return returns
 
+
+
     def update(self, memory, epoch, data=None, env=None, env_params=None, device=None):
         self.policy.to(device)
         returns = self.get_returns(memory.rewards)
-        # returns = self.advantage_normalization(returns)
+        returns = self.advantage_normalization(returns)
 
         old_nodes = torch.stack(memory.nodes).to(device)
         old_edge_attributes = torch.stack(memory.edge_attributes).to(device)
-        old_rewards = returns.sum(dim=1).squeeze(-1).to(device)
-        old_values = torch.stack(memory.values).permute(1, 0).squeeze(-1).to(device)
+        old_rewards = returns.sum(dim=1).to(device)
+        old_values = torch.stack(memory.values).permute(1, 0).to(device)
         old_log_probs = torch.stack(memory.log_probs).to(device)
         old_actions = torch.stack(memory.actions).to(device)
 
-        lr_scheduler = LambdaLR(self.optim, lr_lambda=lambda f: 0.96**epoch)
+        advantages = (old_rewards.detach() - old_values.detach()).squeeze(-1)
 
+        lr_scheduler = LambdaLR(self.optim, lr_lambda=lambda f: 0.96**epoch)
         env = env if env is not None else DVRPSR_Environment
         loss_t, norm_R, critic_R, loss_a, loss_mse, loss_e, ratios, grads = [], [], [], [], [], [], [], []
 
@@ -102,26 +106,29 @@ class AgentPPO:
             self.policy.train()
             dyna_env = env(None, old_nodes, old_edge_attributes, *env_params)
             entropy, log_probs, values = self.policy.evaluate(dyna_env, old_actions.permute(1, 0, 2))
-            # values = torch.stack([values]).permute(1, 0)
+            values = torch.stack([values]).permute(1, 0).squeeze(-1)
 
             R_norm = old_rewards
             R_norm = self.advantage_normalization(R_norm)
-            R_norm = R_norm
+            R_norm = R_norm.squeeze(-1)
 
-            mse_loss = self.MSE_loss(R_norm, values)
-            ratio = torch.exp(log_probs - old_log_probs.detach())
+            mse_loss = self.MSE_loss(values, R_norm)
+            ratio = torch.exp(log_probs - old_log_probs.detach()).squeeze(-1)
 
-            advantages = (R_norm.detach() - values.detach())
             # PPO overall loss function
             actor_loss1 = ratio * advantages
             actor_loss2 = torch.clamp(ratio, 1 - self.epsilon_clip, 1 + self.epsilon_clip) * advantages
-            actor_loss = torch.min(actor_loss1, actor_loss2).mean()
-            # total loss
-            loss = actor_loss + 0.5 * mse_loss - self.entropy_value*entropy.mean()
+            actor_loss = torch.min(actor_loss1, actor_loss2)
 
+            # total loss
+            loss = actor_loss + 0.5 * mse_loss - self.entropy_value*entropy.squeeze(-1)
+
+            # print(advantages.size(), R_norm.size(), values.size(), mse_loss.size(),
+            #       ratio.size(), actor_loss.size(), loss.size(), loss.mean().size())
+
+            # optimizer and backpropogation
             self.optim.zero_grad()
             loss.mean().backward()
-
             grad_norm = clip_grad_norm_(chain.from_iterable(grp["params"] for grp in self.optim.param_groups),
                                         self.max_grad_norm)
             self.optim.step()

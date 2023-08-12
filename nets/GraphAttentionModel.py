@@ -64,8 +64,6 @@ class GraphAttentionModel(nn.Module):
 
         compact[env.current_vehicle_mask] = -float('inf')
 
-        #print('compability before heuristic {}'.format(compact))
-
         ###########################################################################################
         # waiting heuristic in case there is no customer, vehicle should wait at current location
         # if (env.current_vehicle[:, :, 5] != env.current_vehicle[:, :, 4]).all():
@@ -74,7 +72,6 @@ class GraphAttentionModel(nn.Module):
         #                      -self.tanh_xplor)
         # compact[:, :, 0] = -(self.tanh_xplor)
         # ##########################################################################################
-        #print('compability after heuristic {}'.format(compact))
 
         prop = F.softmax(compact, dim=-1)
         return prop
