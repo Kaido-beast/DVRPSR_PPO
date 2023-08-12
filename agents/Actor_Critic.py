@@ -30,7 +30,7 @@ class Actor_Critic(nn.Module):
         while not env.done:
             if env.new_customer:
                 self.actor.encoder(env, env.customer_mask)
-            prop, x = self.actor.decoder(env)
+            prop = self.actor.decoder(env)
             dist = Categorical(prop)
 
             if self.greedy:
@@ -39,7 +39,7 @@ class Actor_Critic(nn.Module):
                 customer_index = dist.sample()
 
             logp = dist.log_prob(customer_index)
-            val = self.critic(x, env.current_vehicle_mask, customer_index)
+            val = self.critic(prop, env.current_vehicle_mask, customer_index)
             actions.append((env.current_vehicle_index, customer_index))
             logps.append(logp)
             rewards.append(env.step(customer_index))
@@ -61,14 +61,14 @@ class Actor_Critic(nn.Module):
             old_action = old_actions[i, :, :]
             next_action = old_actions[i + 1, :, :] if i < steps - 1 else old_action
             next_vehicle_index = next_action[:, 0].unsqueeze(-1)
-            prop, x = self.actor.decoder(env)
+            prop = self.actor.decoder(env)
 
             dist = Categorical(prop)
             old_actions_logp = dist.log_prob(old_action[:, 1].unsqueeze(-1))
             entropy = dist.entropy()
 
             # get values from critic networks
-            val = self.critic(x, env.current_vehicle_mask, old_action[:, 1].unsqueeze(-1))
+            val = self.critic(prop, env.current_vehicle_mask, old_action[:, 1].unsqueeze(-1))
 
             customer_index = old_action[:, 1].unsqueeze(-1)
             env.step(customer_index, next_vehicle_index)
@@ -78,10 +78,8 @@ class Actor_Critic(nn.Module):
             values.append(val)
 
         entropys = torch.cat(entropys, dim=1)
-        # print(entropys)
         num_e = entropys.ne(0).float().sum(1)
         entropys = entropys.sum(1) / num_e
-        # entropys = entropys.sum(dim=1)
         values = torch.cat(values, dim=1).sum(dim=1)
 
         old_actions_logps = torch.cat(old_actions_logps, dim=1).sum(dim=1)

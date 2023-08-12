@@ -1,5 +1,3 @@
-
-import torch
 from torch.utils.data import DataLoader
 
 from agents import AgentPPO
@@ -77,14 +75,10 @@ class TrainPPOAgent:
                         nodes = nodes.view(self.batch_size, self.customers_count, 4)
                         edge_attributes = edge_attributes.view(self.batch_size, self.customers_count * self.customers_count, 1)
                         dyna_env = env(None, nodes, edge_attributes, *env_params)
-
-                        #print('training part of PPO')
                         actions, logps, rewards, values = self.agent.old_policy.act(dyna_env)
                         actions = formate_old_actions(actions)
                         actions = torch.tensor(actions)
                         actions = actions.permute(0, 2, 1)
-
-
 
                         actions = actions.to(torch.device('cpu')).detach()
                         logps = logps.to(torch.device('cpu')).detach()
@@ -99,7 +93,6 @@ class TrainPPOAgent:
                         memory.actions.extend(actions)
 
                         if (batch_index + 1) % self.update_timestep == 0:
-                            #print('updating part of PPO******************************')
                             loss_total, loss_a, loss_m, loss_e, norm_r, critic_r, ratios, grads = self.agent.update(memory, epoch,
                                                                                                                     datas, env,
                                                                                                                     env_params, device)

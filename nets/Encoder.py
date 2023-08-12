@@ -1,6 +1,5 @@
 import torch.nn as nn
 import torch.nn.functional as F
-# from nets import GraphMultiHeadAttention
 from nets import GraphMultiHeadAttention
 
 
@@ -37,6 +36,5 @@ class GraphEncoder(nn.Module):
     def forward(self, h, e=None, mask=None):
         h_out = h
         for child in self.children():
-            h_in = child(h_out, e, mask=mask)
-            h_out = h_out + h_in
+            h_out = child(h_out, e, mask=mask)
         return h_out

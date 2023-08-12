@@ -10,6 +10,7 @@ class GraphAttentionModel(nn.Module):
     def __init__(self, num_customers, customer_feature, vehicle_feature, model_size=128, encoder_layer=3,
                  num_head=8, ff_size=128, tanh_xplor=10, edge_embedding_dim=128):
         super(GraphAttentionModel, self).__init__()
+
         # get models parameters for encoding-decoding
         self.model_size = model_size
         self.scaling_factor = 1 / math.sqrt(self.model_size)
@@ -52,13 +53,12 @@ class GraphAttentionModel(nn.Module):
                                                      -1, -1, self.model_size))
 
         vehicle_representation = self.vehicle_attention(vehicle_query,
-                                                        fleet_representation,
-                                                        fleet_representation)
+                                                        self.customer_representation,
+                                                        self.customer_representation)
 
         compact = torch.bmm(vehicle_representation,
                             self.customer_representation.transpose(2, 1))
         compact *= self.scaling_factor
-        x = compact.clone()
         if self.tanh_xplor is not None:
             compact = self.tanh_xplor * compact.tanh()
 
@@ -77,7 +77,7 @@ class GraphAttentionModel(nn.Module):
         #print('compability after heuristic {}'.format(compact))
 
         prop = F.softmax(compact, dim=-1)
-        return prop, x
+        return prop
 
     def forward(self):
         raise NotImplementedError

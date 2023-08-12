@@ -27,13 +27,13 @@ def ParseArguments(argv=None):
     parser.add_argument_group("Data Generation for DVRPSR")
     parser.add_argument("--problem", "-p", type=str, default='DVRPSR',
                         help="problem to solve is DVRPSR")
-    parser.add_argument("--vehicle-count", "-m", type=int, default=4,
+    parser.add_argument("--vehicle-count", "-m", type=int, default=2,
                         help='number of vehicles for DVRPSR')
     parser.add_argument("--vehicle-speed", type=int, default=1,
                         help='speed of vehicle for DVRPSR')
-    parser.add_argument("--Lambda", type=float, default=0.05,
+    parser.add_argument("--Lambda", type=float, default=0.005,
                         help='Requests rate per minute')
-    parser.add_argument("--dod", type=float, default=0.48,
+    parser.add_argument("--dod", type=float, default=0.24,
                         help="Degree of dynamism")
     parser.add_argument("--horizon", type=int, default=480,
                         help='Working time for DVRPSR in minutes')
@@ -76,13 +76,13 @@ def ParseArguments(argv=None):
                         help='Learning rate for PPO agent')
     parser.add_argument("--ppo-epoch", type=int, default=3,
                         help='Epoch for PPO to run the sample and evaluate')
-    parser.add_argument("--entropy-value", type=int, default=0.3)
+    parser.add_argument("--entropy-value", type=int, default=0.2)
     parser.add_argument("--epsilon-clip", type=int, default=0.2)
     parser.add_argument("--timestep", type=int, default=1)
 
-    parser.add_argument("--epoch-count", "-e", type=int, default=100)
-    parser.add_argument("--iter-count", "-i", type=int, default=2000)
-    parser.add_argument("--batch-size", "-b", type=int, default=128)
+    parser.add_argument("--epoch-count", "-e", type=int, default=10)
+    parser.add_argument("--iter-count", "-i", type=int, default=100)
+    parser.add_argument("--batch-size", "-b", type=int, default=256)
     parser.add_argument("--rate-decay", '-d', type=float, default=0.96)
     parser.add_argument("--max-grad-norm", type=float, default=2)
     parser.add_argument("--grad-norm-decay", type=float, default=None)
