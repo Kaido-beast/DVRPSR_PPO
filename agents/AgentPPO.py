@@ -72,13 +72,17 @@ class AgentPPO:
     def update(self, memory, epoch, data=None, env=None, env_params=None, device=None):
         self.policy.to(device)
         returns = self.get_returns(memory.rewards)
+        old_rewards = returns.sum(dim=1).squeeze(-1).to(device)
+        old_rewards = self.advantage_normalization(old_rewards)
 
         old_nodes = torch.stack(memory.nodes).to(device)
         old_edge_attributes = torch.stack(memory.edge_attributes).to(device)
-        old_rewards = returns.sum(dim=1).squeeze(-1).to(device)
+
         old_values = torch.stack(memory.values).permute(1, 0).squeeze(-1).to(device)
         old_log_probs = torch.stack(memory.log_probs).to(device)
         old_actions = torch.stack(memory.actions).to(device)
+
+        advantages = (old_rewards.detach() - old_values.detach())
 
         lr_scheduler = LambdaLR(self.optim, lr_lambda=lambda f: 0.96**epoch)
         env = env if env is not None else DVRPSR_Environment
@@ -90,13 +94,9 @@ class AgentPPO:
             entropy, log_probs, values = self.policy.evaluate(dyna_env, old_actions.permute(1, 0, 2))
 
             R_norm = old_rewards
-            R_norm = self.advantage_normalization(R_norm)
-            R_norm = R_norm
-
             mse_loss = self.MSE_loss(R_norm, values)
             ratio = torch.exp(log_probs - old_log_probs.detach())
 
-            advantages = (R_norm.detach() - values.detach())
             # PPO overall loss function
             actor_loss1 = ratio * advantages
             actor_loss2 = torch.clamp(ratio, 1 - self.epsilon_clip, 1 + self.epsilon_clip) * advantages
@@ -110,6 +110,10 @@ class AgentPPO:
             loss.mean().backward()
             grad_norm = clip_grad_norm_(chain.from_iterable(grp["params"] for grp in self.optim.param_groups),
                                         self.max_grad_norm)
+
+            # print(R_norm.size(), values.size(), advantages.size(),
+            #       actor_loss.size(), mse_loss.size(), loss.size(), entropy.size())
+
             self.optim.step()
             lr_scheduler.step()
 

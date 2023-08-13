@@ -25,13 +25,13 @@ def ParseArguments(argv=None):
     parser.add_argument_group("Data Generation for DVRPSR")
     parser.add_argument("--problem", "-p", type=str, default='DVRPSR',
                         help="problem to solve is DVRPSR")
-    parser.add_argument("--vehicle-count", "-m", type=int, default=2,
+    parser.add_argument("--vehicle-count", "-m", type=int, default=4,
                         help='number of vehicles for DVRPSR')
     parser.add_argument("--vehicle-speed", type=int, default=1,
                         help='speed of vehicle for DVRPSR')
-    parser.add_argument("--Lambda", type=float, default=0.005,
+    parser.add_argument("--Lambda", type=float, default=0.05,
                         help='Requests rate per minute')
-    parser.add_argument("--dod", type=float, default=0.24,
+    parser.add_argument("--dod", type=float, default=0.48,
                         help="Degree of dynamism")
     parser.add_argument("--horizon", type=int, default=480,
                         help='Working time for DVRPSR in minutes')
@@ -46,7 +46,7 @@ def ParseArguments(argv=None):
 
     ### Environment related arguments
     parser.add_argument_group(" Environment for DVRPSR")
-    parser.add_argument("--pending-cost", type=int, default=1,
+    parser.add_argument("--pending-cost", type=int, default=0.5,
                         help='Pending cost for not serving a static customers in routes')
     parser.add_argument("--dynamic-reward", type=int, default=0.5,
                         help="Reward for serving a Dynamic customer")
@@ -70,23 +70,23 @@ def ParseArguments(argv=None):
     parser.add_argument_group(" Training PPO Agnet ")
     parser.add_argument("--greedy", action='store_true', default=False,
                         help='weather to use greedy or smapling')
-    parser.add_argument("--learning-rate", type=int, default=3e-4,
+    parser.add_argument("--learning-rate", type=int, default=1e-4,
                         help='Learning rate for PPO agent')
-    parser.add_argument("--ppo-epoch", type=int, default=3,
+    parser.add_argument("--ppo-epoch", type=int, default=2,
                         help='Epoch for PPO to run the sample and evaluate')
-    parser.add_argument("--entropy-value", type=int, default=0.1)
+    parser.add_argument("--entropy-value", type=int, default=0.05)
     parser.add_argument("--epsilon-clip", type=int, default=0.2)
     parser.add_argument("--timestep", type=int, default=1)
 
-    parser.add_argument("--epoch-count", "-e", type=int, default=10)
-    parser.add_argument("--iter-count", "-i", type=int, default=100)
-    parser.add_argument("--batch-size", "-b", type=int, default=256)
+    parser.add_argument("--epoch-count", "-e", type=int, default=50)
+    parser.add_argument("--iter-count", "-i", type=int, default=50)
+    parser.add_argument("--batch-size", "-b", type=int, default=128)
     parser.add_argument("--rate-decay", '-d', type=float, default=0.96)
     parser.add_argument("--max-grad-norm", type=float, default=2)
     parser.add_argument("--grad-norm-decay", type=float, default=None)
 
     ### Testing Related arguments
-    parser.add_argument("--test-batch-size", type=int, default=128)
+    parser.add_argument("--test-batch-size", type=int, default=56)
 
     ### Saving paramters
     parser.add_argument_group("Checkpointing")

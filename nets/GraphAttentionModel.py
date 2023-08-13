@@ -58,7 +58,6 @@ class GraphAttentionModel(nn.Module):
         compact = torch.bmm(vehicle_representation,
                             self.customer_representation.transpose(2, 1))
         compact *= self.scaling_factor
-        x = compact.clone()
         if self.tanh_xplor is not None:
             compact = self.tanh_xplor * compact.tanh()
 
@@ -74,7 +73,7 @@ class GraphAttentionModel(nn.Module):
         # ##########################################################################################
 
         prop = F.softmax(compact, dim=-1)
-        return prop, x
+        return prop, compact
 
     def forward(self):
         raise NotImplementedError

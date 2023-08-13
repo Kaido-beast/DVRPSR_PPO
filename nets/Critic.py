@@ -13,7 +13,8 @@ class Critic(nn.Module):
         self.ff_layer1 = nn.Linear(customers_count, ff_size, bias=False)
         self.ff_layer2 = nn.Linear(ff_size, customers_count, bias=False)
 
-    def forward(self, x, current_vehicle_mask=None, customer_index=None):
+    def forward(self, comapct, current_vehicle_mask=None, customer_index=None):
+        x = comapct.clone()
         x[current_vehicle_mask] = 0
         value = F.relu(self.ff_layer1(x))
         value = self.ff_layer2(value)
