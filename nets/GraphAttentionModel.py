@@ -58,6 +58,7 @@ class GraphAttentionModel(nn.Module):
         compact = torch.bmm(vehicle_representation,
                             self.customer_representation.transpose(2, 1))
         compact *= self.scaling_factor
+        x = compact.clone()
         if self.tanh_xplor is not None:
             compact = self.tanh_xplor * compact.tanh()
 
@@ -65,15 +66,15 @@ class GraphAttentionModel(nn.Module):
 
         ###########################################################################################
         # waiting heuristic in case there is no customer, vehicle should wait at current location
-        # if (env.current_vehicle[:, :, 5] != env.current_vehicle[:, :, 4]).all():
-        #     compact.scatter_(2,
-        #                      env.current_vehicle[:, :, 5].squeeze().long().unsqueeze(-1).unsqueeze(-1),
-        #                      -self.tanh_xplor)
-        # compact[:, :, 0] = -(self.tanh_xplor)
+        if (env.current_vehicle[:, :, 5] != env.current_vehicle[:, :, 4]).all():
+            compact.scatter_(2,
+                             env.current_vehicle[:, :, 5].squeeze().long().unsqueeze(-1).unsqueeze(-1),
+                             -self.tanh_xplor)
+        compact[:, :, 0] = -(self.tanh_xplor)
         # ##########################################################################################
 
         prop = F.softmax(compact, dim=-1)
-        return prop, compact
+        return prop, x
 
     def forward(self):
         raise NotImplementedError
