@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 
 class GraphMultiHeadAttention(nn.Module):
-    def __init__(self, num_head, query_size, key_size=None, value_size=None, edge_size=None):
+    def __init__(self, num_head, query_size, key_size=None, value_size=None):
         super(GraphMultiHeadAttention, self).__init__()
 
         self.query_size = query_size
@@ -19,13 +19,6 @@ class GraphMultiHeadAttention(nn.Module):
         self.query_embed = nn.Linear(self.query_size, self.num_head*self.key_dim, bias=False)
         self.key_embed = nn.Linear(self.key_size, self.num_head*self.key_dim, bias=False)
         self.value_embed = nn.Linear(self.value_size, self.num_head*self.value_dim, bias=False)
-
-        if edge_size is not None:
-            self.edge_size = self.query_size // 2 if edge_size is None else edge_size
-            self.edge_dim = self.edge_size // num_head
-            norm_factor_edge = 1 / math.sqrt(self.edge_dim)
-            self.edge_embed = nn.Linear(self.edge_size, self.num_head*self.edge_dim, bias=False)
-            nn.init.uniform_(self.edge_embed.weight, -norm_factor_edge, norm_factor_edge)
 
         self.combine = nn.Linear(self.num_head*self.value_dim, self.value_size, bias=False)
         self.init_parameters()
@@ -56,9 +49,6 @@ class GraphMultiHeadAttention(nn.Module):
             V = self.key_embed(values).view(batch_size, KV_size, self.num_head, self.key_dim).permute(0, 2, 1, 3)
 
         attention = self.norm_factor * Q.matmul(K)
-        if edges is not None:
-            E = self.edge_embed(edges).view(-1, Q_size, Q_size, self.num_head, self.edge_dim).mean(-1).permute(0, 3, 1, 2)
-            attention *= E
 
         if mask is not None:
             if mask.numel() * self.num_head == attention.numel():

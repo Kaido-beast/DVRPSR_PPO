@@ -46,13 +46,6 @@ class DVRPSR_Dataset(Dataset):
         # get location of customers: id, xcoords, ycoords
         locations = utils.get_customers_coordinates(data_vienna, batch_size, V, depot)
 
-        # get edges index and attributes, which is distance between one node to others n_i*n_j
-        # get the real street data or euclidean data between coordinates (which is faster to compute)
-        if enclidean:
-            edges_index, edges_attributes = get_edges_euclidean.get_edges_attributes_parallel(batch_size, graph, depot, locations, V)
-        else:
-            edges_index, edges_attributes = get_edges_street.get_edges_attributes_parallel(batch_size, graph, depot, locations, V)
-
         ### generate Static_Dynamic customer requests
         dynamic_request = utils.generateRandomDynamicRequests(batch_size,
                                                             V,
@@ -72,20 +65,16 @@ class DVRPSR_Dataset(Dataset):
 
         nodes = torch.cat((depo, customers), 1)
 
-        dataset = cls(vehicle_count, vehicle_speed, horizon, nodes, V,
-                      edges_index, edges_attributes, customer_mask=None)
+        dataset = cls(vehicle_count, vehicle_speed, horizon, nodes, V, customer_mask=None)
 
         return dataset
 
-    def __init__(self, vehicle_count, vehicle_speed, horizon, nodes, V,
-                 edges_index, edges_attributes, customer_mask=None):
+    def __init__(self, vehicle_count, vehicle_speed, horizon, nodes, V, customer_mask=None):
 
         self.vehicle_count = vehicle_count
         self.vehicle_speed = vehicle_speed
         self.nodes = nodes
         self.vehicle_time_budget = horizon
-        self.edges_index = edges_index
-        self.edges_attributes = edges_attributes
 
         self.batch_size, self.nodes_count, d = self.nodes.size()
 
@@ -101,9 +90,9 @@ class DVRPSR_Dataset(Dataset):
 
     def __getitem__(self, i):
         if self.customer_mask is None:
-            return self.nodes[i], self.edges_attributes[i]
+            return self.nodes[i]
         else:
-            return self.nodes[i], self.customer_mask[i], self.edges_attributes[i]
+            return self.nodes[i], self.customer_mask[i]
 
     def nodes_generate(self):
         if self.customer_mask is None:
@@ -114,15 +103,12 @@ class DVRPSR_Dataset(Dataset):
     def normalize(self):
         loc_max, loc_min = self.nodes[:, :, :2].max().item(), self.nodes[:, :, :2].min().item()
         loc_max -= loc_min
-        #edge_max_length = self.edges_attributes[:, :, 0].max().item()
-
         self.nodes[:, :, :2] -= loc_min
         self.nodes[:, :, :2] /= loc_max
         self.nodes[:, :, 2:] /= self.vehicle_time_budget
 
         self.vehicle_speed *= self.vehicle_time_budget / loc_max
         self.vehicle_time_budget = 1
-        self.edges_attributes /= loc_max
         return loc_max, 1
 
     def save(self, folder_path):
@@ -130,10 +116,8 @@ class DVRPSR_Dataset(Dataset):
             'veh_count': self.vehicle_count,
             'veh_speed': self.vehicle_speed,
             'nodes': self.nodes,
-            'edges_index': self.edges_index,
-            'edges_attributes': self.edges_attributes,
             'customer_count': self.customer_count,
-            'cust_mask': self.cust_mask
+            'cust_mask': self.customer_mask
         }, folder_path)
 
     @classmethod
@@ -144,14 +128,14 @@ if __name__ == '__main__':
     args = ParseArguments()
     start_time = time()
 
-    train_test_val = 'train'
+    train_test_val = 'validation'
 
     if train_test_val == 'train':
         batch_size = args.batch_size * args.iter_count
     elif train_test_val == 'test':
         batch_size = args.test_batch_size
     else:
-        batch_size = 20
+        batch_size = 10
 
     print(batch_size)
     vehicle_count = args.vehicle_count
@@ -174,11 +158,11 @@ if __name__ == '__main__':
     folder_path = "../data/{}/{}_{}_{}_{}".format(train_test_val, Lambda, dod, vehicle_count, horizon)
     os.makedirs(folder_path, exist_ok=True)
     if train_test_val == 'train':
-        torch.save(data, os.path.join(folder_path, "train_n.pth"))
+        torch.save(data, os.path.join(folder_path, "train_d.pth"))
     elif train_test_val == 'test':
-        torch.save(data, os.path.join(folder_path, "test_un.pth"))
+        torch.save(data, os.path.join(folder_path, "test_d.pth"))
     else:
-        torch.save(data, os.path.join(folder_path, "val_ung.pth"))
+        torch.save(data, os.path.join(folder_path, "val_accuracy.pth"))
 
-    print(f'Time to run {batch_size} batches is {end_time-start_time}')
-    print(data.edges_attributes.size())
+    print(f'Time to run {batch_size} batches is {end_time - start_time}')
+    print(data.nodes[0], data.nodes[0].size())

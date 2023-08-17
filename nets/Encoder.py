@@ -4,18 +4,18 @@ from nets import GraphMultiHeadAttention
 
 
 class GraphEncoderlayer(nn.Module):
-    def __init__(self, num_head, model_size, ff_size, edge_dim_size):
+    def __init__(self, num_head, model_size, ff_size):
         super(GraphEncoderlayer, self).__init__()
 
-        self.attention = GraphMultiHeadAttention(num_head, query_size=model_size, edge_size=edge_dim_size)
+        self.attention = GraphMultiHeadAttention(num_head, query_size=model_size)
         self.BN1 = nn.BatchNorm1d(model_size)
 
         self.FFN_layer1 = nn.Linear(model_size, ff_size)
         self.FFN_layer2 = nn.Linear(ff_size, model_size)
         self.BN2 = nn.BatchNorm1d(model_size)
 
-    def forward(self, h, e=None, mask=None):
-        h_attn = self.attention(h, edges=e, mask=mask)
+    def forward(self, h, mask=None):
+        h_attn = self.attention(h, mask=mask)
         h_attn = self.BN1((h + h_attn).permute(0, 2, 1)).permute(0, 2, 1)
 
         h_out = F.relu(self.FFN_layer1(h_attn))
@@ -28,14 +28,14 @@ class GraphEncoderlayer(nn.Module):
 
 
 class GraphEncoder(nn.Module):
-    def __init__(self, encoder_layer, num_head, model_size, ff_size, edge_dim_size):
+    def __init__(self, encoder_layer, num_head, model_size, ff_size):
         super(GraphEncoder, self).__init__()
         for l in range(encoder_layer):
-            self.add_module(str(l), GraphEncoderlayer(num_head, model_size, ff_size, edge_dim_size))
+            self.add_module(str(l), GraphEncoderlayer(num_head, model_size, ff_size))
 
-    def forward(self, h, e=None, mask=None):
+    def forward(self, h, mask=None):
         h_out = h
         for child in self.children():
-            h_in = child(h_out, None, mask=mask)
+            h_in = child(h_out, mask=mask)
             h_out = h_out + h_in
         return h_out

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-from nets import GraphAttentionModel
+from nets.GraphAttentionModel import GraphAttentionModel
+from nets.GraphAttentionModel_torch import GraphAttentionModel_torch
 from torch.distributions.categorical import Categorical
 from nets import Critic
 
@@ -16,12 +17,11 @@ class Actor_Critic(nn.Module):
                  ff_size_actor=128,
                  ff_size_critic=512,
                  tanh_xplor=10,
-                 edge_embedding_dim=128,
                  greedy=False):
         super(Actor_Critic, self).__init__()
         self.critic = Critic(customers_count, ff_size_critic)
-        self.actor = GraphAttentionModel(customers_count, customer_feature, vehicle_feature, model_size, encoder_layer,
-                                         num_head, ff_size_actor, tanh_xplor, edge_embedding_dim)
+        self.actor = GraphAttentionModel_torch(customers_count, customer_feature, vehicle_feature, model_size, encoder_layer,
+                                               num_head, ff_size_actor, tanh_xplor)
         self.greedy = greedy
 
     def act(self, env):

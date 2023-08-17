@@ -24,7 +24,6 @@ class AgentPPO:
                  ff_size_actor=128,
                  ff_size_critic=128,
                  tanh_xplor=10,
-                 edge_embedding_dim=128,
                  greedy=False,
                  learning_rate=3e-4,
                  ppo_epoch=3,
@@ -35,10 +34,10 @@ class AgentPPO:
 
         self.policy = Actor_Critic(customer_feature, vehicle_feature, customers_count, model_size,
                                    encoder_layer, num_head, ff_size_actor, ff_size_critic,
-                                   tanh_xplor, edge_embedding_dim, greedy)
+                                   tanh_xplor, greedy)
         self.old_policy = Actor_Critic(customer_feature, vehicle_feature, customers_count, model_size,
                                        encoder_layer, num_head, ff_size_actor, ff_size_critic,
-                                       tanh_xplor, edge_embedding_dim, greedy)
+                                       tanh_xplor, greedy)
 
         self.old_policy.load_state_dict(self.policy.state_dict())
 
@@ -69,14 +68,13 @@ class AgentPPO:
         returns = torch.stack(returns).permute(1, 0, 2)
         return returns
 
-    def update(self, memory, epoch, data=None, env=None, env_params=None, device=None):
+    def update(self, memory, epoch, env=None, env_params=None, device=None):
         self.policy.to(device)
         returns = self.get_returns(memory.rewards)
         old_rewards = returns.sum(dim=1).squeeze(-1).to(device)
         old_rewards = self.advantage_normalization(old_rewards)
 
         old_nodes = torch.stack(memory.nodes).to(device)
-        old_edge_attributes = torch.stack(memory.edge_attributes).to(device)
 
         old_values = torch.stack(memory.values).permute(1, 0).squeeze(-1).to(device)
         old_log_probs = torch.stack(memory.log_probs).to(device)
@@ -90,7 +88,7 @@ class AgentPPO:
 
         for i in range(self.ppo_epoch):
             self.policy.train()
-            dyna_env = env(None, old_nodes, old_edge_attributes, *env_params)
+            dyna_env = env(None, old_nodes, *env_params)
             entropy, log_probs, values = self.policy.evaluate(dyna_env, old_actions.permute(1, 0, 2))
 
             R_norm = old_rewards

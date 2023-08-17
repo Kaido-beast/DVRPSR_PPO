@@ -2,45 +2,31 @@ import torch
 
 
 class DVRPSR_Environment:
-    # vehicle coordinates(x_i,y_i), veh_time_time_budget, total_travel_time, last_customer, next(destination) customer
-    vehicle_feature = 6
+    # vehicle coordinates(x_i,y_i), veh_time_time_budget, total_travel_time
+    vehicle_feature = 4
     # customers feature: coordinates (x_i,y_i), service time, arrival_time
     customer_feature = 4
 
     def __init__(self,
                  data=None,
                  nodes=None,
-                 edges_attributes=None,
                  vehicle_count=2,
                  vehicle_speed=1,
                  vehicle_time_budget=1,
                  pending_cost=0.1,
-                 dynamic_reward=1,
-                 budget_penalty=2):
+                 dynamic_reward=1):
 
-        self.vehicle_count = data.vehicle_count if data is not None else vehicle_count
+        self.vehicle_count = vehicle_count
         self.vehicle_speed = data.vehicle_speed if data is not None else vehicle_speed
         self.vehicle_time_budget = data.vehicle_time_budget if data is not None else vehicle_time_budget
         self.nodes = data.nodes if nodes is None else nodes
-        self.edge_attributes = data.edges_attributes if edges_attributes is None else edges_attributes
         self.minibatch, self.nodes_count, _ = self.nodes.size()
-        self.distance_matrix = self.edge_attributes.view((self.minibatch, self.nodes_count, self.nodes_count))
         self.pending_cost = pending_cost
         self.dynamic_reward = dynamic_reward
-        self.budget_penalty = budget_penalty
 
     def _update_current_vehicles(self, dest, customer_index):
-        # update vehicle previous and next customer id
-        self.current_vehicle[:, :, 4] = self.current_vehicle[:, :, 5]
-        self.current_vehicle[:, :, 5] = customer_index
 
-        # get the distance from current vehicle to its next destination
-        # Convert indices to integers
-        current_idx = self.current_vehicle[:, :, 4].long()
-        next_idx = self.current_vehicle[:, :, 5].long()
-        dist = self.distance_matrix[torch.arange(self.minibatch).unsqueeze(1),
-                                                 current_idx,
-                                                 next_idx].view(self.minibatch, 1)
+        dist = torch.pairwise_distance(self.current_vehicle[:, 0, :2], dest[:, 0, :2], keepdim=True)
         # total travel time and
         # budget left while travelling to destination nodes
         budget = dist / self.vehicle_speed + dest[:, :, 2]
@@ -52,13 +38,15 @@ class DVRPSR_Environment:
 
         # update vehicles states
         self.vehicles = self.vehicles.scatter(1,
-                                              self.current_vehicle_index[:, :, None].expand(-1, -1, self.vehicle_feature),
+                                              self.current_vehicle_index[:, :, None].expand(-1, -1,
+                                                                                            self.vehicle_feature),
                                               self.current_vehicle)
         return dist
 
     def _done(self, customer_index):
-        self.vehicle_done.scatter_(1, self.current_vehicle_index,
-                                      torch.logical_or((self.current_vehicle[:, :, 2] <= 0), (customer_index == 0)))
+        self.vehicle_done.scatter_(1,
+                                   self.current_vehicle_index,
+                                   torch.logical_or((self.current_vehicle[:, :, 2] <= 0), (customer_index == 0)))
 
         self.done = torch.logical_or(self.vehicle_done.all(),
                                      (self.pending_customers == 0).all())
@@ -69,15 +57,16 @@ class DVRPSR_Environment:
         self.pending_customers = (self.served ^ True).float().sum(-1, keepdim=True) - 1
 
         # cost for a vehicle to go to customer and back to deport considering service duration
-        current_idx = self.current_vehicle[:, :, 5].long()
-        dist_vehicle_customer_depot = self.distance_matrix[torch.arange(self.minibatch).unsqueeze(1), current_idx, :].squeeze(1) +\
-                                      self.distance_matrix[:, :, 0]
-        cost = dist_vehicle_customer_depot / self.vehicle_speed
+        # Calculate distances
+        dist_vehicle_to_customers = torch.norm(self.current_vehicle.squeeze(1)[:, None, :2] - self.nodes[:, :, :2], dim=2)
+        dist_customers_to_depot = torch.norm(self.nodes[:, :, :2] - self.nodes[:, 0, None, :2], dim=2)
+        cost = (dist_vehicle_to_customers + dist_customers_to_depot) / self.vehicle_speed
         cost += self.nodes[:, :, 2]
+
         overtime_mask = self.current_vehicle[:, :, None, 2] - cost.unsqueeze(1)
         overtime = torch.zeros_like(self.mask).scatter_(1,
                                                         self.current_vehicle_index[:, :, None].
-                                                        expand(-1, -1, self.nodes_count),overtime_mask < 0)
+                                                        expand(-1, -1, self.nodes_count), overtime_mask < 0)
         self.mask = self.mask | self.served[:, None, :] | overtime | self.vehicle_done[:, :, None]
         # masking of depot is set to False
         self.mask[:, :, 0] = 0
@@ -91,8 +80,10 @@ class DVRPSR_Environment:
         else:
             self.current_vehicle_index = veh_index
 
-        self.current_vehicle = self.vehicles.gather(1, self.current_vehicle_index[:, :, None].expand(-1, -1, self.vehicle_feature))
-        self.current_vehicle_mask = self.mask.gather(1, self.current_vehicle_index[:, :, None].expand(-1, -1, self.nodes_count))
+        self.current_vehicle = self.vehicles.gather(1, self.current_vehicle_index[:, :, None].expand(-1, -1,
+                                                                                                     self.vehicle_feature))
+        self.current_vehicle_mask = self.mask.gather(1, self.current_vehicle_index[:, :, None].expand(-1, -1,
+                                                                                                      self.nodes_count))
 
     def _update_dynamic_customers(self, veh_index):
         time = self.current_vehicle[:, :, 3].clone()
@@ -143,41 +134,6 @@ class DVRPSR_Environment:
                                                      self.current_vehicle_index[:, :, None].
                                                      expand(-1, -1, self.nodes_count))
 
-
-    # def step(self, customer_index, veh_index=None):
-    #     dest = self.nodes.gather(1, customer_index[:, :, None].expand(-1, -1, self.customer_feature))
-    #     dist = self._update_current_vehicles(dest, customer_index)
-    #     self._done(customer_index)
-    #     self._update_mask(customer_index)
-    #     self._update_next_vehicle(veh_index)
-    #     self._update_dynamic_customers(veh_index)
-    #
-    #     self.tour_length += dist
-    #
-    #     reward = +dist * 0.5
-    #
-    #     if self.done:
-    #         served_customers = torch.sum(self.served.float(), dim=1)
-    #         pending_customers = torch.sum((self.served ^ True) & (self.nodes[:, :, 3] >= 0), dim=1) - 1
-    #
-    #         # Define hyperparameters for reward shaping
-    #         alpha = 0.5  # Weight for distance minimization
-    #         beta = 100.0  # Weight for customer satisfaction (served/pending ratio)
-    #
-    #         # Calculate tour length reward
-    #         tour_length_reward = self.tour_length
-    #
-    #         # Calculate customer satisfaction reward
-    #         unserved_ratio = pending_customers / (served_customers + pending_customers + 1e-6)
-    #         satisfaction_reward = beta * unserved_ratio
-    #
-    #         # Combine the rewards using a weighted sum
-    #         reward += alpha * tour_length_reward + (1 - alpha) * satisfaction_reward.unsqueeze(-1)
-    #
-    #         return reward
-    #     else:
-    #         return reward
-
     def step(self, customer_index, veh_index=None):
         dest = self.nodes.gather(1, customer_index[:, :, None].expand(-1, -1, self.customer_feature))
         dist = self._update_current_vehicles(dest, customer_index)
@@ -196,7 +152,7 @@ class DVRPSR_Environment:
                                                   (self.nodes[:, :, 3] >= 0)).float().sum(-1, keepdim=True) - 1
 
             pending_static_customers = torch.logical_and((self.served ^ True),
-                                                  (self.nodes[:, :, 3] == 0)).float().sum(-1, keepdim=True) - 1
+                                                         (self.nodes[:, :, 3] == 0)).float().sum(-1, keepdim=True) - 1
 
             reward += self.pending_cost * pending_customers + self.pending_cost * pending_static_customers
             return reward

@@ -19,7 +19,6 @@ class TrainPPOAgent:
                  ff_size_actor=128,
                  ff_size_critic=128,
                  tanh_xplor=10,
-                 edge_embedding_dim=128,
                  greedy=False,
                  learning_rate=3e-4,
                  ppo_epoch=3,
@@ -38,7 +37,7 @@ class TrainPPOAgent:
         self.epoch = epoch
         self.agent = AgentPPO(customer_feature, vehicle_feature, customers_count, model_size,
                               encoder_layer, num_head, ff_size_actor, ff_size_critic,
-                              tanh_xplor, edge_embedding_dim, greedy, learning_rate,
+                              tanh_xplor, greedy, learning_rate,
                               ppo_epoch, batch_size, entropy_value, epsilon_clip, max_grad_norm)
 
     def run_train(self, args, datas, env, env_params, device, env_test, ref_cost=None):
@@ -69,11 +68,9 @@ class TrainPPOAgent:
                     prop, val, loss_total, loss_a, loss_m, loss_e, norm_r, critic_r = [], [], [], [], [], [], [], []
 
                     for batch_index, minibatch in enumerate(progress):
-                        nodes, edge_attributes = minibatch[0].to(device), minibatch[1].to(device)
+                        nodes = minibatch.to(device)
                         nodes = nodes.view(self.batch_size, self.customers_count, 4)
-                        edge_attributes = edge_attributes.view(self.batch_size, self.customers_count * self.customers_count, 1)
-                        dyna_env = env(None, nodes, edge_attributes, *env_params)
-                        #print('training part of PPO')
+                        dyna_env = env(None, nodes, *env_params)
                         actions, logps, rewards, values = self.agent.old_policy.act(dyna_env)
                         actions = formate_old_actions(actions)
                         actions = torch.tensor(actions)
@@ -84,8 +81,7 @@ class TrainPPOAgent:
                         rewards = torch.stack(rewards).to(torch.device('cpu')).detach()
                         values = torch.stack([values]).to(torch.device('cpu')).detach()
 
-                        memory.nodes.extend(minibatch[0])
-                        memory.edge_attributes.extend(minibatch[1])
+                        memory.nodes.extend(minibatch)
                         memory.rewards.extend(rewards)
                         memory.values.extend(values)
                         memory.log_probs.extend(logps)
@@ -93,9 +89,11 @@ class TrainPPOAgent:
 
                         if (batch_index + 1) % self.update_timestep == 0:
                             #print('updating part of PPO******************************')
-                            loss_total, loss_a, loss_m, loss_e, norm_r, critic_r, ratios, grads = self.agent.update(memory, epoch,
-                                                                                                                    datas, env,
-                                                                                                                    env_params, device)
+                            loss_total, loss_a, loss_m, loss_e, norm_r, critic_r, ratios, grads = self.agent.update(memory,
+                                                                                                                    epoch,
+                                                                                                                    env,
+                                                                                                                    env_params,
+                                                                                                                    device)
                             memory.clear()
 
                         prob = torch.stack([logps]).sum(dim=0).exp().mean()
