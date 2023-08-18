@@ -38,4 +38,6 @@ class GraphEncoder(nn.Module):
         for child in self.children():
             h_in = child(h_out, mask=mask)
             h_out = h_out + h_in
-        return h_out
+
+        g_out = h_out.clone()
+        return h_out, g_out.mean(1)
