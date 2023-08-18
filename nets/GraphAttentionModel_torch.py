@@ -18,6 +18,7 @@ class GraphAttentionModel_torch(nn.Module):
         self.depot_embedding = nn.Linear(customer_feature, self.model_size)
         encoder_layer = nn.TransformerEncoderLayer(d_model=model_size,
                                                    nhead=num_head,
+                                                   dim_feedforward = 1024,
                                                    dropout=0.0)
 
         self.customer_encoder = nn.TransformerEncoder(encoder_layer=encoder_layer,
@@ -35,7 +36,9 @@ class GraphAttentionModel_torch(nn.Module):
         if customer_mask is not None:
             customer_embed[customer_mask] = 0
 
-        self.customer_representation = self.customer_encoder.forward(customer_embed)
+        customer_representation = self.customer_encoder.forward(customer_embed)
+        self.customer_representation = self.customer_projection(customer_representation)
+
         if customer_mask is not None:
             self.customer_representation[customer_mask] = 0
 

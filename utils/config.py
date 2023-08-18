@@ -27,7 +27,7 @@ def ParseArguments(argv=None):
                         help="problem to solve is DVRPSR")
     parser.add_argument("--vehicle-count", "-m", type=int, default=2,
                         help='number of vehicles for DVRPSR')
-    parser.add_argument("--vehicle-speed", type=int, default=1,
+    parser.add_argument("--vehicle-speed", type=int, default=2,
                         help='speed of vehicle for DVRPSR')
     parser.add_argument("--Lambda", type=float, default=0.2,
                         help='Requests rate per minute')
@@ -74,11 +74,11 @@ def ParseArguments(argv=None):
                         help='Learning rate for PPO agent')
     parser.add_argument("--ppo-epoch", type=int, default=2,
                         help='Epoch for PPO to run the sample and evaluate')
-    parser.add_argument("--entropy-value", type=int, default=0.05)
+    parser.add_argument("--entropy-value", type=int, default=0.01)
     parser.add_argument("--epsilon-clip", type=int, default=0.2)
     parser.add_argument("--timestep", type=int, default=1)
 
-    parser.add_argument("--epoch-count", "-e", type=int, default=50)
+    parser.add_argument("--epoch-count", "-e", type=int, default=12)
     parser.add_argument("--iter-count", "-i", type=int, default=100)
     parser.add_argument("--batch-size", "-b", type=int, default=64)
     parser.add_argument("--rate-decay", '-d', type=float, default=0.96)
