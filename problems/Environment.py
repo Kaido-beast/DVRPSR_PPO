@@ -143,21 +143,48 @@ class DVRPSR_Environment:
         self._update_dynamic_customers(veh_index)
 
         self.tour_length += dist
-
-        reward = +dist
+        reward = +dist * 0.5
 
         if self.done:
-            # penalty for all and static pending customers
-            pending_customers = torch.logical_and((self.served ^ True),
-                                                  (self.nodes[:, :, 3] >= 0)).float().sum(-1, keepdim=True) - 1
+            served_customers = torch.sum(self.served.float(), dim=1)
+            pending_customers = torch.sum((self.served ^ True) & (self.nodes[:, :, 3] >= 0), dim=1) - 1
+            alpha = 0.5  # Weight for distance minimization
+            beta = 100.0  # Weight for customer satisfaction (served/pending ratio)
+            tour_length_reward = self.tour_length
 
-            pending_static_customers = torch.logical_and((self.served ^ True),
-                                                         (self.nodes[:, :, 3] == 0)).float().sum(-1, keepdim=True) - 1
+            # Calculate customer satisfaction reward
+            unserved_ratio = pending_customers / (served_customers + pending_customers + 1e-6)
+            unserved_penalties = beta * unserved_ratio
+            reward += alpha * tour_length_reward + (1 - alpha) * unserved_penalties.unsqueeze(-1)
 
-            reward += self.pending_cost * pending_customers + self.pending_cost * pending_static_customers
             return reward
         else:
             return reward
+
+    # def step(self, customer_index, veh_index=None):
+    #     dest = self.nodes.gather(1, customer_index[:, :, None].expand(-1, -1, self.customer_feature))
+    #     dist = self._update_current_vehicles(dest, customer_index)
+    #     self._done(customer_index)
+    #     self._update_mask(customer_index)
+    #     self._update_next_vehicle(veh_index)
+    #     self._update_dynamic_customers(veh_index)
+    #
+    #     self.tour_length += dist
+    #
+    #     reward = +dist
+    #
+    #     if self.done:
+    #         # penalty for all and static pending customers
+    #         pending_customers = torch.logical_and((self.served ^ True),
+    #                                               (self.nodes[:, :, 3] >= 0)).float().sum(-1, keepdim=True) - 1
+    #
+    #         pending_static_customers = torch.logical_and((self.served ^ True),
+    #                                                      (self.nodes[:, :, 3] == 0)).float().sum(-1, keepdim=True) - 1
+    #
+    #         reward += self.pending_cost * pending_customers + self.pending_cost * pending_static_customers
+    #         return reward
+    #     else:
+    #         return reward
 
     def state_dict(self, dest_dict=None):
         if dest_dict is None:
