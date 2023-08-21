@@ -45,7 +45,7 @@ class TrainPPOAgent:
         if args.resume_state is None:
             start_epoch = 0
         else:
-            start_epoch = load_checkpoint(args, self.agent.old_policy)
+            start_epoch = load_checkpoint(args, self.agent.old_policy, self.agent.optim)
 
         memory = Memory()
         self.agent.old_policy.to(device)
@@ -125,10 +125,10 @@ class TrainPPOAgent:
                 if args.grad_norm_decay is not None:
                     args.max_grad_norm *= args.grad_norm_decay
                 if (epoch + 1) % args.checkpoint_period == 0:
-                    save_checkpoint(args, epoch, self.agent.old_policy)
+                    save_checkpoint(args, epoch, self.agent.old_policy, self.agent.optim)
 
         except KeyboardInterrupt:
-            save_checkpoint(args, epoch, self.agent.old_policy)
+            save_checkpoint(args, epoch, self.agent.old_policy, self.agent.optim)
         finally:
             export_train_test_stats(args, start_epoch, train_stats, test_stats)
 

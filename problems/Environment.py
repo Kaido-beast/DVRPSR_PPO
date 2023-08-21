@@ -14,7 +14,7 @@ class DVRPSR_Environment:
                  vehicle_speed=1,
                  vehicle_time_budget=1,
                  pending_cost=0.1,
-                 dynamic_reward=1):
+                 dynamic_reward=0.05):
 
         self.vehicle_count = vehicle_count
         self.vehicle_speed = data.vehicle_speed if data is not None else vehicle_speed
@@ -155,7 +155,7 @@ class DVRPSR_Environment:
                                                   (self.nodes[:, :, 3] >= 0)).float().sum(-1, keepdim=True) - 1
             pending_static_customers = torch.logical_and((self.served ^ True),
                                                          (self.nodes[:, :, 3] == 0)).float().sum(-1, keepdim=True) - 1
-            reward += self.pending_cost * (pending_customers + pending_static_customers)
+            reward += self.pending_cost * pending_customers + self.dynamic_reward * pending_static_customers
             reward += self.tour_length
             return reward
         else:

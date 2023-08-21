@@ -16,15 +16,17 @@ def export_train_test_stats(args, start_epoch, train_stats, test_stats):
                 epoch, *train, *test))
 
 
-def save_checkpoint(args, epoch, model):
+def save_checkpoint(args, epoch, model, optim):
     checkout = {'epoch': epoch,
-                'model': model.state_dict()}
+                'model': model.state_dict(),
+                'optim': optim.state_dict()}
     torch.save(checkout, os.path.join(args.output_dir, "epoch{}.pth".format(epoch+1)))
 
 
 def load_checkpoint(args, model, optim):
     checkout = torch.load(args.resume_state)
     model.load_state_dict(checkout['model'])
+    optim.load_state_dict(checkout['optim'])
 
     return checkout['epoch']
 
