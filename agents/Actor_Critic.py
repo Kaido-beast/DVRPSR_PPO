@@ -20,7 +20,7 @@ class Actor_Critic(nn.Module):
                  greedy=False):
         super(Actor_Critic, self).__init__()
         self.critic = Critic(customers_count, ff_size_critic)
-        self.actor = GraphAttentionModel_torch(customers_count, customer_feature, vehicle_feature, model_size, encoder_layer,
+        self.actor = GraphAttentionModel(customers_count, customer_feature, vehicle_feature, model_size, encoder_layer,
                                                num_head, ff_size_actor, tanh_xplor)
         self.greedy = greedy
 

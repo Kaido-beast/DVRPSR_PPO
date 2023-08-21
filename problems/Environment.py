@@ -142,7 +142,7 @@ class DVRPSR_Environment:
                                                   (self.nodes[:, :, 3] >= 0)).float().sum(-1, keepdim=True) - 1
             pending_static_customers = torch.logical_and((self.served ^ True),
                                                          (self.nodes[:, :, 3] == 0)).float().sum(-1, keepdim=True) - 1
-            reward += self.pending_cost * pending_customers + self.pending_cost * pending_static_customers
+            reward += self.pending_cost * pending_customers
             return reward
         else:
             return reward

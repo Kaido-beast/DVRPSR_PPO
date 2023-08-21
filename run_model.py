@@ -83,7 +83,7 @@ def run(args):
 
     ## Checkpoints
     verbose_print("Creating Output directry...", end=" ", flush=True)
-    args.output_dir = "./output/exp160nodes_torch_cr_entropy{}_{}_{}_{}_{}".format(args.entropy_value,
+    args.output_dir = "./output/exp160_reward1_entropy{}_{}_{}_{}_{}".format(args.entropy_value,
                                                                           args.Lambda,
                                                                           args.dod,
                                                                           args.vehicle_count,

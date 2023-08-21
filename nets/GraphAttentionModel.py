@@ -49,8 +49,8 @@ class GraphAttentionModel(nn.Module):
 
         vehicles_embed = self.vehicle_embedding(env.vehicles)
         fleet_representation = self.fleet_attention(vehicles_embed,
-                                                    self.customer_representation,
-                                                    self.customer_representation)
+                                                    self.graph_representation,
+                                                    self.graph_representation)
         vehicle_query = fleet_representation.gather(1,
                                                     env.current_vehicle_index.unsqueeze(2).expand(
                                                      -1, -1, self.model_size))
