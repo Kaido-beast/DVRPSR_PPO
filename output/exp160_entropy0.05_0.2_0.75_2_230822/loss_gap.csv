@@ -1,8 +1,0 @@
-             #EP            #LOSS            #PROB             #VAL           #C_Val         #TEST_MU        #TEST_STD        #TEST_GAP
-               0          0.0784            0.458             8.85           0.0151                0                0                0
-               1          0.0935            0.411             8.68           0.0162                0                0                0
-               2           0.228          0.00889             6.83          0.00659                0                0                0
-             #EP            #LOSS            #PROB             #VAL           #C_Val         #TEST_MU        #TEST_STD        #TEST_GAP
-               0           0.316            0.667             16.3           0.0314                0                0                0
-               1           0.287            0.125             13.6           0.0763                0                0                0
-             #EP            #LOSS            #PROB             #VAL           #C_Val         #TEST_MU        #TEST_STD        #TEST_GAP
