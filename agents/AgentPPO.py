@@ -48,7 +48,7 @@ class AgentPPO:
         # initialize the Adam optimizer
         self.optim = torch.optim.Adam([
                         {'params': self.policy.actor.parameters(), 'lr': learning_rate},
-                        {'params': self.policy.critic.parameters(), 'lr': 1e-3}])
+                        {'params': self.policy.critic.parameters(), 'lr': 1e-4}])
         self.MSE_loss = nn.MSELoss(reduction='mean')
         self.max_grad_norm = max_grad_norm
 
@@ -62,7 +62,7 @@ class AgentPPO:
         returns = []
         discounted_returns = torch.zeros_like(R[0])
         for reward in reversed(R):
-            discounted_returns = reward + (1.0 * discounted_returns)
+            discounted_returns = reward + (0.99 * discounted_returns)
             returns.insert(0, discounted_returns)
 
         returns = torch.stack(returns).permute(1, 0, 2)
@@ -82,7 +82,7 @@ class AgentPPO:
 
         advantages = (old_rewards.detach() - old_values.detach())
 
-        lr_scheduler = LambdaLR(self.optim, lr_lambda=lambda f: 0.96**epoch)
+        lr_scheduler = LambdaLR(self.optim, lr_lambda=lambda f: 0.98**epoch)
         env = env if env is not None else DVRPSR_Environment
         loss_t, norm_R, critic_R, loss_a, loss_mse, loss_e, ratios, grads = [], [], [], [], [], [], [], []
 

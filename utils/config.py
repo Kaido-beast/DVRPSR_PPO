@@ -29,9 +29,9 @@ def ParseArguments(argv=None):
                         help='number of vehicles for DVRPSR')
     parser.add_argument("--vehicle-speed", type=int, default=2,
                         help='speed of vehicle for DVRPSR')
-    parser.add_argument("--Lambda", type=float, default=0.1,
+    parser.add_argument("--Lambda", type=float, default=0.4,
                         help='Requests rate per minute')
-    parser.add_argument("--dod", type=float, default=0.75,
+    parser.add_argument("--dod", type=float, default=0.85,
                         help="Degree of dynamism")
     parser.add_argument("--horizon", type=int, default=600,
                         help='Working time for DVRPSR in minutes')
@@ -52,15 +52,15 @@ def ParseArguments(argv=None):
                         help="Reward for serving a Dynamic customer")
 
     parser.add_argument_group(" Graph Attention models ")
-    parser.add_argument("--model-size", type=int, default=128,
+    parser.add_argument("--model-size", type=int, default=32,
                         help=" Size of for attention models")
-    parser.add_argument("--encoder-layer", type=int, default=1,
+    parser.add_argument("--encoder-layer", type=int, default=2,
                         help='Number of Encoder Layers')
-    parser.add_argument("--num-head", type=int, default=8,
+    parser.add_argument("--num-head", type=int, default=4,
                         help='Number of heads in MultiHeadAttention modules')
-    parser.add_argument("--ff-size-actor", type=int, default=256,
+    parser.add_argument("--ff-size-actor", type=int, default=32,
                         help=" Size of fully connected Feed Forward Networks")
-    parser.add_argument("--ff-size-critic", type=int, default=256,
+    parser.add_argument("--ff-size-critic", type=int, default=32,
                         help=" Size of fully connected Feed Forward Networks")
     parser.add_argument("--tanh-xplor", type=int, default=10)
     parser.add_argument("--edge_embedding_dim", type=int, default=64,
@@ -74,13 +74,13 @@ def ParseArguments(argv=None):
                         help='Learning rate for PPO agent')
     parser.add_argument("--ppo-epoch", type=int, default=2,
                         help='Epoch for PPO to run the sample and evaluate')
-    parser.add_argument("--entropy-value", type=int, default=0.05)
+    parser.add_argument("--entropy-value", type=int, default=0.01)
     parser.add_argument("--epsilon-clip", type=int, default=0.2)
     parser.add_argument("--timestep", type=int, default=1)
 
-    parser.add_argument("--epoch-count", "-e", type=int, default=50)
-    parser.add_argument("--iter-count", "-i", type=int, default=50)
-    parser.add_argument("--batch-size", "-b", type=int, default=128)
+    parser.add_argument("--epoch-count", "-e", type=int, default=15)
+    parser.add_argument("--iter-count", "-i", type=int, default=100)
+    parser.add_argument("--batch-size", "-b", type=int, default=32)
     parser.add_argument("--rate-decay", '-d', type=float, default=0.96)
     parser.add_argument("--max-grad-norm", type=float, default=2)
     parser.add_argument("--grad-norm-decay", type=float, default=None)

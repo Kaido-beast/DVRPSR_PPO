@@ -12,7 +12,7 @@ ortool_available = False
 
 
 def run(args):
-    device = torch.device("mps" if torch.backends.mps.is_available() and args.gpu else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() and args.gpu else "cpu")
     print(device)
 
     if args.seed is not None:
@@ -27,7 +27,7 @@ def run(args):
     ## load DVRPSR problem
 
     verbose_print("Uploading data for training {}".format(args.iter_count * args.batch_size), end=" ", flush=True)
-    train_data = torch.load("./data/train/{}_{}_{}_{}/train_d.pth".format(args.Lambda,
+    train_data = torch.load("./data/train/{}_{}_{}_{}/train.pth".format(args.Lambda,
                                                                         args.dod,
                                                                         args.vehicle_count,
                                                                         args.horizon))
@@ -35,7 +35,7 @@ def run(args):
 
     verbose_print("Uploading data for testing {}".format(args.test_batch_size), end=" ", flush=True)
     # test data is not normalized
-    test_data = torch.load("./data/test/{}_{}_{}_{}/test_d.pth".format(args.Lambda,
+    test_data = torch.load("./data/test/{}_{}_{}_{}/test.pth".format(args.Lambda,
                                                                      args.dod,
                                                                      args.vehicle_count,
                                                                      args.horizon))
@@ -83,7 +83,7 @@ def run(args):
 
     ## Checkpoints
     verbose_print("Creating Output directry...", end=" ", flush=True)
-    args.output_dir = "./output/exp160_entropy{}_{}_{}_{}_{}".format(args.entropy_value,
+    args.output_dir = "./output/exp282_1_entropy{}_{}_{}_{}_{}".format(args.entropy_value,
                                                                           args.Lambda,
                                                                           args.dod,
                                                                           args.vehicle_count,
